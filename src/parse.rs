@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Read;
 
 use Token::*;
@@ -15,7 +16,7 @@ enum Token {
     ParR,
 
     /// `P`, `Q`, etc.
-    Sym(char),
+    Sym(u64),
 
     /// `!`
     Not,
@@ -143,12 +144,24 @@ struct Parser<I> where I : Iterator<Item = char> {
 
     /// The current coordinate, as a [ParseCoord].
     pos: ParseCoord,
+
+    /// The symbol table, which maps names to integers
+    symbols: HashMap<String, u64>,
+    next_sym: u64
 }
 
 impl<I> Parser<I> where I : Iterator<Item = char> {
     /// Creates a new parser for the given character iterator.
     fn new(r: I) -> Self {
-        let mut o = Self { iter: r, lb_chr: None, la_chr: None, la_tok: Unknown, pos: ParseCoord::new() };
+        let mut o = Self {
+            iter: r,
+            lb_chr: None,
+            la_chr: None,
+            la_tok: Unknown,
+            pos: ParseCoord::new(),
+            symbols: HashMap::new(),
+            next_sym: 0
+        };
         o.shift_chr();
         o.shift_tok();
         return o;
@@ -169,14 +182,19 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
 
     /// Shifts over as many characters that match the given `predicate` as possible, shifting until it finds
     /// a character that does not match or until it hits the end of the input.
-    fn shift_chr_while<P>(&mut self, predicate: P) where P: Fn(char) -> bool {
+    fn shift_chr_while<P>(&mut self, predicate: P) -> String where P: Fn(char) -> bool {
+        let mut out = String::new();
+
         while let Some(c) = self.la_chr {
             if !predicate(c) {
                 break;
             }
 
             self.shift_chr();
+            out.push(c);
         }
+
+        return out;
     }
 
 
@@ -208,8 +226,8 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
 
             // Alphabetic character, this is a symbol
             Some('A'..='Z' | 'a'..='z') => {
-                self.shift_chr();
-                Sym(la.unwrap())
+                let sym = self.shift_chr_while(|c| matches!(c, 'A'..='Z' | 'a'..='z' | '0'..='9' | '_'));
+                Sym(self.lookup_sym(sym))
             },
 
             // Either `|` or `|-`
@@ -290,6 +308,21 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
 
             // Anythinig else is invalid
             _ => Unknown
+        }
+    }
+
+    /// Associates a symbol name with an [u64] that uniquely represents that symbol name.
+    fn lookup_sym(&mut self, name: String) -> u64 {
+        match self.symbols.get(&name) {
+            Some(sym) => *sym,
+            None => {
+                let sym = self.next_sym;
+                self.next_sym += 1;
+
+                self.symbols.insert(name, sym);
+
+                sym
+            }
         }
     }
 

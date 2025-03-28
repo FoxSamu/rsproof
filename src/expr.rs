@@ -2,7 +2,7 @@
 #[derive(Hash, PartialEq, Eq, Clone)]
 pub enum Expr {
     /// A simple symbol, e.g. `P` or `Q`. Symbols are always a single character.
-    Symbol(char),
+    Symbol(u64),
 
     /// An inverted expression, i.e. `!...`.
     Not(Box<Expr>),
@@ -34,7 +34,7 @@ pub fn not(n: Expr) -> Expr {
 }
 
 /// Creates a symbol expression, where the given character `c` is the symbol.
-pub fn sym(c: char) -> Expr {
+pub fn sym(c: u64) -> Expr {
     Symbol(c)
 }
 

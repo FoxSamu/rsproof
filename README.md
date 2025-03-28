@@ -42,8 +42,7 @@ impl:
     atom
 
 atom:
-    'a'..'z'
-    'A'..'Z'
+    /[a-zA-Z][a-zA-Z0-9_]*/
     '!' atom
     '(' expr ')'
 ```

@@ -13,22 +13,22 @@ use crate::expr::Expr::*;
 /// represents a contradiction.
 #[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Clause {
-    pos: BTreeSet<char>,
-    neg: BTreeSet<char>
+    pos: BTreeSet<u64>,
+    neg: BTreeSet<u64>
 }
 
 // Hashing for clauses.
 impl Hash for Clause {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // This hash function works in such a way that order of symbols does not matter
-        let mut ph = 0u32;
-        let mut nh = 0u32;
+        let mut ph = 0u64;
+        let mut nh = 0u64;
 
         for c in &self.pos {
-            ph += *c as u32;
+            ph += *c;
         }
         for c in &self.neg {
-            nh += *c as u32;
+            nh += *c;
         }
 
         ph.hash(state);
@@ -89,12 +89,12 @@ fn difference_b<T>(l: BTreeSet<T>, r: BTreeSet<T>) -> BTreeSet<T> where T : Ord 
 
 impl Clause {
     /// Creates a positive [Clause] with just one symbol.
-    pub fn from_pos(c: char) -> Self {
+    pub fn from_pos(c: u64) -> Self {
         Self { pos: BTreeSet::from([c]), neg: BTreeSet::from([]) }
     }
 
     /// Creates a negative [Clause] with just one symbol.
-    pub fn from_neg(c: char) -> Self {
+    pub fn from_neg(c: u64) -> Self {
         Self { pos: BTreeSet::from([]), neg: BTreeSet::from([c]) }
     }
 
