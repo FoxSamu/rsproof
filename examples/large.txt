@@ -1,0 +1,26 @@
+# This can go in many many directions, so this really puts some strain on the prover
+# It should prove it fairly quickly, though, due to the way it searches
+
+A -> B,
+A -> C,
+A -> D,
+A -> E,
+E -> A,
+E -> F,
+E -> G,
+G -> H,
+H -> I,
+
+J -> K,
+L -> K,
+K -> L,
+M -> K,
+M -> N,
+N -> O,
+O -> P,
+P -> A,
+L -> Q,
+Q -> R,
+R -> M,
+
+J |- I
