@@ -14,7 +14,7 @@ pub enum Expr {
     Or(Box<Expr>, Box<Expr>)
 }
 
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use Expr::*;
 
@@ -178,5 +178,11 @@ impl Display for Expr {
             And(l, r) => write!(f, "({l}&{r})"),
             Or(l, r) => write!(f, "({l}|{r})")
         }
+    }
+}
+
+impl Debug for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self, f)
     }
 }

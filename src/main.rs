@@ -18,13 +18,9 @@ fn main() {
         return;
     }
 
-    // println!("{parsed}");
-
     // Convert to CNF
-    let cnf = parsed.unwrap().to_cnf();
+    let cnf = dbg!(dbg!(parsed.unwrap()).to_cnf());
     let clauses = Clause::from_cnf(&cnf);
-
-    // println!("{cnf}");
 
     // for clause in &clauses {
     //     println!("{clause}");

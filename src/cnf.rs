@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 
 use crate::expr::Expr;
@@ -13,8 +13,11 @@ use crate::expr::Expr::*;
 /// represents a contradiction.
 #[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Clause {
-    pos: BTreeSet<u64>,
-    neg: BTreeSet<u64>
+    /// The set of positive symbols in this clause
+    pub pos: BTreeSet<u64>,
+
+    /// The set of negative symbols in this clause
+    pub neg: BTreeSet<u64>
 }
 
 // Hashing for clauses.
@@ -61,6 +64,12 @@ impl Display for Clause {
         }
 
         Ok(())
+    }
+}
+
+impl Debug for Clause {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self, f)
     }
 }
 
@@ -113,7 +122,7 @@ impl Clause {
     /// The method will panic if the expression is not a clause.
     fn from_clause(e: &Expr) -> Clause {
         match e {
-            Or(l, r) => Self::from_union(&Self::from_clause(l), &Self::from_clause(r)),
+            Or(l, r) => Self::from_union(&Self::from_clause(l), &Self::from_clause(r)).cleanup(),
             e => Self::from_atom(e, false)
         }
     }
@@ -134,7 +143,7 @@ impl Clause {
         Self {
             pos: union_b(l.pos.clone(), r.pos.clone()),
             neg: union_b(l.neg.clone(), r.neg.clone())
-        }.cleanup()
+        }
     }
 
     /// Cleans up this clause. That is, it removes all tautologies like `P | !P` from the clause.
