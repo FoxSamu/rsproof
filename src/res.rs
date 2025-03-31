@@ -118,9 +118,20 @@ fn resolve(a: &Clause, b: &Clause) -> Resolvent {
     }
 }
 
+
+/// The results of a [resolution] operation.
+pub struct Resolution {
+    /// True when the the input statement can be satisfied, false if it is a contradiction.
+    pub satisfied: bool,
+
+    /// The amount of clauses it learned during resolution.
+    pub clauses_learned: u64,
+}
+
+
 /// Given a set of [Clause]s representing an expression in CNF, this function determines the satisfiability
 /// of that expression by means of resolution.
-pub fn resolution(stmt: &BTreeSet<Clause>) -> bool {
+pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
     // The algorithm is somewhat similar to A*, searching the entire search space but heavily preferring to
     // work with smaller expressions (the smaller, the more likely it is to be a contradiction)
 
@@ -131,11 +142,16 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> bool {
     // The B-Tree helps us keep them sorted by complexity
     let mut next = BTreeSet::new();
 
+    let mut stats = Resolution {
+        satisfied: false,
+        clauses_learned: 0
+    };
+
     // Start with the input on the "next" set
     for clause in stmt.clone() {
         // If any input clause is empty, it's a contradiction, and we're done
         if clause.is_empty() {
-            return false;
+            return stats;
         }
 
         // Insert with zero complexity since these clauses are trivial knowledge.
@@ -172,7 +188,7 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> bool {
                 }
 
                 // Contradictory clause: this proves unsatisfiability so we are done
-                Resolvent::Contradiction => return false,
+                Resolvent::Contradiction => return stats,
 
                 // Tautology clause: this is useless
                 Resolvent::Tautology => {}
@@ -182,8 +198,10 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> bool {
         // Only add the clause to knowledge now, so that the previous
         // loop does not need to worry about resolving a clause with itself
         knowledge.insert(new);
+
+        stats.clauses_learned += 1;
     }
 
     // No contradictions were found, thus the expression is satisfiable
-    true
+    stats
 }

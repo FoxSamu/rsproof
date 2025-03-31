@@ -2,6 +2,9 @@
 
 A small theorem prover in Rust, proving lemmas in propositional logic.
 
+## Requirements
+
+You need the `cargo` build tool for Rust. This can be installed using `rustup`, see https://www.rust-lang.org/tools/install.
 
 ## Usage
 

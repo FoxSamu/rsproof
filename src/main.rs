@@ -3,6 +3,8 @@ mod cnf;
 mod res;
 mod parse;
 
+use std::collections::BTreeSet;
+use std::env;
 use std::io::stdin;
 use std::process::ExitCode;
 
@@ -11,6 +13,9 @@ use parse::parse;
 use res::resolution;
 
 fn main() -> ExitCode {
+    let args: BTreeSet<String> = env::args().collect();
+    let verbose = args.contains(&String::from("-v"));
+
     // Parse stdin
     let parsed = parse(stdin());
 
@@ -23,19 +28,19 @@ fn main() -> ExitCode {
     let cnf = parsed.unwrap().to_cnf();
     let clauses = Clause::from_cnf(&cnf);
 
-    // for clause in &clauses {
-    //     println!("{clause}");
-    // }
-
     // Resolve
-    let cont_sat = resolution(&clauses);
+    let resolution = resolution(&clauses);
 
     // The parser states the input as a "proof by contradiction"
-    // so if we find a contradiction then the proof is satisifed.
-    if !cont_sat {
+    // so if we find a contradiction then what we prove is satisifed.
+    if !resolution.satisfied {
         println!("sat");
     } else {
         println!("unsat");
+    }
+
+    if verbose {
+        println!("Clauses learned:    {}", resolution.clauses_learned);
     }
 
     return ExitCode::SUCCESS;
