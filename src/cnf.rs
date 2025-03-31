@@ -188,10 +188,14 @@ type Name = u64;
 
 #[allow(dead_code)]
 #[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub struct Func(pub Name, pub Vec<Name>);
+
+#[allow(dead_code)]
+#[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub enum Term {
     /// A predicate term, of the form `P(a, b, ...)`. A predicate `P` is a nullary predicate `P()`.
-    Predicate(Name, Vec<Name>),
+    Predicate(Name, Vec<Func>),
 
     /// An equality term, of the form `a == b`. Note that `a != b` is equivalent to `!(a == b)`.
-    Equality(Name, Name),
+    Equality(Func, Func),
 }
