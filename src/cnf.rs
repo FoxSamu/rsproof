@@ -5,6 +5,7 @@ use std::hash::Hash;
 use crate::expr::Expr;
 use crate::expr::Expr::*;
 
+
 /// A clause is a disjunction of atom expressions. That is, this struct represents a conjunction of symbols,
 /// which are optionally negated. In a clean clause, there are no tautologies like `P | !P`.
 /// 
@@ -132,7 +133,16 @@ impl Clause {
     pub fn from_cnf(e: &Expr) -> BTreeSet<Clause> {
         match e {
             And(l, r) => union_b(Self::from_cnf(l), Self::from_cnf(r)),
-            e => BTreeSet::from([Self::from_clause(e)])
+            e => {
+                let clause = Self::from_clause(e);
+                if !clause.is_empty() {
+                    BTreeSet::from([clause])
+                } else {
+                    // If the clause is empty, it is a tautology in this case, so it does not contribute
+                    // to the CNF in any way that makes sense
+                    BTreeSet::from([])
+                }
+            }
         }
     }
 
@@ -154,9 +164,8 @@ impl Clause {
         }
     }
 
-    /// Tests whether this clause is a contradiction. A clause is a contradiction if and only it does not have
-    /// any terms. That is, a clause `c` can be seen as `c | false`, so if `c` is empty then `(c | false) -> false`.
-    pub fn is_contradiction(&self) -> bool {
+    /// Tests whether this clause is empty. A clause is empty if and only it does not have any terms.
+    pub fn is_empty(&self) -> bool {
         self.neg.is_empty() && self.pos.is_empty()
     }
 
@@ -165,4 +174,24 @@ impl Clause {
     pub fn complexity(&self) -> usize {
         self.neg.len() + self.pos.len()
     }
+}
+
+
+
+
+
+
+
+// These aren't yet used but when we introduce EUF we will replace the clause terms with these.
+#[allow(dead_code)]
+type Name = u64;
+
+#[allow(dead_code)]
+#[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
+pub enum Term {
+    /// A predicate term, of the form `P(a, b, ...)`. A predicate `P` is a nullary predicate `P()`.
+    Predicate(Name, Vec<Name>),
+
+    /// An equality term, of the form `a == b`. Note that `a != b` is equivalent to `!(a == b)`.
+    Equality(Name, Name),
 }

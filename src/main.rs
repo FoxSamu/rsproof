@@ -19,7 +19,7 @@ fn main() {
     }
 
     // Convert to CNF
-    let cnf = dbg!(dbg!(parsed.unwrap()).to_cnf());
+    let cnf = parsed.unwrap().to_cnf();
     let clauses = Clause::from_cnf(&cnf);
 
     // for clause in &clauses {

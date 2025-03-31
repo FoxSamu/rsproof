@@ -1,3 +1,1 @@
-# This one should not satisfy but it satisfies anyway
-
 P <-> Q, P |- !Q
