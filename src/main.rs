@@ -4,18 +4,19 @@ mod res;
 mod parse;
 
 use std::io::stdin;
+use std::process::ExitCode;
 
 use cnf::Clause;
 use parse::parse;
 use res::resolution;
 
-fn main() {
+fn main() -> ExitCode {
     // Parse stdin
     let parsed = parse(stdin());
 
     if let Err(msg) = parsed {
         println!("Syntax error: {msg}");
-        return;
+        return ExitCode::FAILURE;
     }
 
     // Convert to CNF
@@ -36,4 +37,6 @@ fn main() {
     } else {
         println!("unsat");
     }
+
+    return ExitCode::SUCCESS;
 }

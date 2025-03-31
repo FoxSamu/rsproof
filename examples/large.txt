@@ -1,5 +1,5 @@
 # This can go in many many directions, so this really puts some strain on the prover
-# It should prove it fairly quickly, though, due to the way it searches
+# It should prove it fairly quickly, though, due to the way it searches, and it should satisfy
 
 A -> B,
 A -> C,
