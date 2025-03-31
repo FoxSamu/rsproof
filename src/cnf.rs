@@ -15,28 +15,21 @@ use crate::expr::Expr::*;
 #[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Clause {
     /// The set of positive symbols in this clause
-    pub pos: BTreeSet<u64>,
+    pub pos: BTreeSet<Term>,
 
     /// The set of negative symbols in this clause
-    pub neg: BTreeSet<u64>
+    pub neg: BTreeSet<Term>
 }
 
 // Hashing for clauses.
 impl Hash for Clause {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // This hash function works in such a way that order of symbols does not matter
-        let mut ph = 0u64;
-        let mut nh = 0u64;
-
         for c in &self.pos {
-            ph += *c;
+            c.hash(state);
         }
         for c in &self.neg {
-            nh += *c;
+            c.hash(state);
         }
-
-        ph.hash(state);
-        nh.hash(state);
     }
 }
 
@@ -99,12 +92,12 @@ fn difference_b<T>(l: BTreeSet<T>, r: BTreeSet<T>) -> BTreeSet<T> where T : Ord 
 
 impl Clause {
     /// Creates a positive [Clause] with just one symbol.
-    pub fn from_pos(c: u64) -> Self {
+    pub fn from_pos(c: Term) -> Self {
         Self { pos: BTreeSet::from([c]), neg: BTreeSet::from([]) }
     }
 
     /// Creates a negative [Clause] with just one symbol.
-    pub fn from_neg(c: u64) -> Self {
+    pub fn from_neg(c: Term) -> Self {
         Self { pos: BTreeSet::from([]), neg: BTreeSet::from([c]) }
     }
 
@@ -113,7 +106,11 @@ impl Clause {
     /// The method will panic if the expression is not atomic.
     fn from_atom(e: &Expr, neg: bool) -> Clause {
         match e {
-            Symbol(s) => if neg { Self::from_neg(*s) } else { Self::from_pos(*s) },
+            Symbol(s) => if neg {
+                Self::from_neg(Term::Symbol(*s))
+            } else {
+                Self::from_pos(Term::Symbol(*s))
+            },
             Not(e) => Self::from_atom(e, !neg),
             e => panic!("Not in CNF: {e} is not an atom")
         }
@@ -181,21 +178,21 @@ impl Clause {
 
 
 
-
-// These aren't yet used but when we introduce EUF we will replace the clause terms with these.
-#[allow(dead_code)]
-type Name = u64;
-
-#[allow(dead_code)]
-#[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
-pub struct Func(pub Name, pub Vec<Name>);
-
-#[allow(dead_code)]
-#[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum Term {
-    /// A predicate term, of the form `P(a, b, ...)`. A predicate `P` is a nullary predicate `P()`.
-    Predicate(Name, Vec<Func>),
+    Symbol(u64),
+}
 
-    /// An equality term, of the form `a == b`. Note that `a != b` is equivalent to `!(a == b)`.
-    Equality(Func, Func),
+impl Display for Term {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Term::Symbol(n) => write!(f, "{n}"),
+        }
+    }
+}
+
+impl Debug for Term {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self, f)
+    }
 }

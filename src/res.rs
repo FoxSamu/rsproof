@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::cnf::Clause;
+use crate::cnf::{Clause, Term};
 
 /// A candidate clause, tracking its complexity. This struct orders clauses by complexity when used
 /// in a [BTreeSet], allowing us to prioritise low-complexity clauses.
@@ -65,17 +65,19 @@ enum Resolvent {
 /// - [Resolvent::Nontrivial] in any other case.
 fn resolve(a: &Clause, b: &Clause) -> Resolvent {
     // Collect the unions of the positive and negative sets of the clauses
-    let mut pos_u = BTreeSet::<u64>::new();
-    let mut neg_u = BTreeSet::<u64>::new();
+    let mut pos_u = BTreeSet::<Term>::new();
+    let mut neg_u = BTreeSet::<Term>::new();
 
-    pos_u.extend(&a.pos);
-    pos_u.extend(&b.pos);
-    neg_u.extend(&a.neg);
-    neg_u.extend(&b.neg);
+    pos_u.extend(a.pos.clone());
+    pos_u.extend(b.pos.clone());
+    neg_u.extend(a.neg.clone());
+    neg_u.extend(b.neg.clone());
 
     // Now find the intersection between these two sets
-    let mut isc = BTreeSet::<u64>::new();
-    isc.extend(pos_u.intersection(&neg_u));
+    let mut isc = BTreeSet::<Term>::new();
+    for term in pos_u.intersection(&neg_u) {
+        isc.insert(term.clone());
+    }
 
     // Remove intersecting elements from unions
     //
@@ -84,9 +86,9 @@ fn resolve(a: &Clause, b: &Clause) -> Resolvent {
     // The difference between these two is only relevant in the case
     // we resolve an empty clause.
     let mut iscs = 0u64;
-    for sym in isc {
-        pos_u.remove(&sym);
-        neg_u.remove(&sym);
+    for term in isc {
+        pos_u.remove(&term);
+        neg_u.remove(&term);
         iscs += 1;
 
         // If we remove more than one intersection, it means there is a tautology in the
