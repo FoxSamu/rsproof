@@ -664,15 +664,19 @@ fn make_msg(m: String, c: ParseCoord) -> String {
     return out;
 }
 
-pub fn parse<R>(mut r: R) -> Result<Expr, String> where R : Read {
-    let mut str = String::new();
-
-    r.read_to_string(&mut str).map_err(|_| String::from("IO Error"))?;
-
+pub fn parse_string(str: &String) -> Result<Expr, String> {
     let mut parser = Parser::new(str.chars());
 
     match parser.turnstile() {
         Ok(e) => Result::Ok(e),
         Absent(m, c) | Error(m, c) => Err(make_msg(m, c))
     }
+}
+
+pub fn parse<R>(mut r: R) -> Result<Expr, String> where R : Read {
+    let mut str = String::new();
+
+    r.read_to_string(&mut str).map_err(|_| String::from("IO Error"))?;
+
+    parse_string(&str)
 }

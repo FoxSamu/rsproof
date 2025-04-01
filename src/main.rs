@@ -3,6 +3,9 @@ mod cnf;
 mod res;
 mod parse;
 
+#[cfg(test)]
+mod test;
+
 use std::collections::BTreeSet;
 use std::env;
 use std::io::stdin;

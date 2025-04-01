@@ -20,8 +20,8 @@ Those ignored tokens not included, the exact syntax is as follows (starting from
 
 ```
 input:
-    exprs '|-' exprs
-    '|-' exprs
+    exprs '|-' exprs <eof>
+    '|-' exprs <eof>
 
 exprs:
     expr ',' exprs
