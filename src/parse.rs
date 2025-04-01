@@ -18,6 +18,12 @@ enum Token {
     /// `P`, `Q`, etc.
     Sym(u64),
 
+    /// `*`
+    Taut,
+
+    /// `~`
+    Cont,
+
     /// `!`
     Not,
 
@@ -236,6 +242,16 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
                 Sym(self.lookup_sym(sym))
             },
 
+            Some('*') => {
+                self.shift_chr();
+                Taut
+            },
+
+            Some('~') => {
+                self.shift_chr();
+                Cont
+            },
+
             // Either `|` or `|-`
             Some('|') => {
                 self.shift_chr();
@@ -436,6 +452,8 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
 
     fn atom(&mut self) -> ParseResult<Expr> {
         // atom  :  pred
+        //       |  '~'
+        //       |  '*'
         //       |  '!' atom
         //       |  '(' expr ')'
 
@@ -444,6 +462,18 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
             Sym(_) => {
                 self.pred()
             },
+
+            Taut => {
+                self.shift_tok();
+
+                Ok(taut())
+            }
+
+            Cont => {
+                self.shift_tok();
+
+                Ok(cont())
+            }
 
             // atom  :  '!' atom
             Not => {

@@ -7,6 +7,9 @@ pub enum Expr {
     /// An equality, i.e. `... == ...`
     Eq(u64, u64),
 
+    /// A tautology
+    Taut,
+
     /// An inverted expression, i.e. `!...`.
     Not(Box<Expr>),
 
@@ -20,6 +23,16 @@ pub enum Expr {
 use std::fmt::{Debug, Display};
 
 use Expr::*;
+
+/// Creates a tautology expression.
+pub fn taut() -> Expr {
+    Taut
+}
+
+/// Creates a contradiction expression.
+pub fn cont() -> Expr {
+    not(Taut)
+}
 
 /// Creates a disjunction of two expressions. That is, it creates the expression `l | r`.
 pub fn or(l: Expr, r: Expr) -> Expr {
@@ -76,8 +89,7 @@ impl Expr {
     /// an inverted atom. `P` and `!!!P` are atoms, but `!(P | !Q)` is not.
     fn is_atom(&self) -> bool {
         match self {
-            Pred(_, _) => true,
-            Eq(_, _) => true,
+            Pred(_, _) | Eq(_, _) | Taut => true,
             Not(n) => n.is_atom(),
             _ => false
         }
@@ -206,6 +218,7 @@ impl Display for Expr {
                 }
                 write!(f, ")")
             }
+            Taut => write!(f, "*"),
             Not(n) => write!(f, "!{n}"),
             Eq(l, r) => write!(f, "({l}=={r})"),
             And(l, r) => write!(f, "({l}&{r})"),

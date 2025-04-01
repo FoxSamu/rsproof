@@ -117,6 +117,11 @@ impl Clause {
             } else {
                 Self::from_pos(Term::Equality(*l, *r))
             },
+            Taut => if neg {
+                Self::from_neg(Term::Tautology)
+            } else {
+                Self::from_pos(Term::Tautology)
+            },
             Not(e) => Self::from_atom(e, !neg),
             e => panic!("Not in CNF: {e} is not an atom")
         }
@@ -221,6 +226,7 @@ fn sub_name(n: u64, from: u64, to: u64) -> u64 {
 pub enum Term {
     Predicate(u64, Vec<u64>),
     Equality(u64, u64),
+    Tautology
 }
 
 impl Term {
@@ -228,14 +234,15 @@ impl Term {
         match self {
             Term::Predicate(n, v) => Term::Predicate(n, v.into_iter().map(|n| sub_name(n, from, to)).collect()),
             Term::Equality(l, r) => Term::Equality(sub_name(l, from, to), sub_name(r, from, to)),
+            Term::Tautology => Term::Tautology,
         }
     }
 
     pub fn is_tautology(&self) -> bool {
-        if let Term::Equality(l, r) = self {
-            l == r
-        } else {
-            false
+        match self {
+            Term::Equality(l, r) => l == r,
+            Term::Predicate(_, _) => false,
+            Term::Tautology => true,
         }
     }
 }
@@ -260,6 +267,9 @@ impl Display for Term {
             },
             Term::Equality(l, r) => {
                 write!(f, "{l} == {r}")?;
+            },
+            Term::Tautology => {
+                write!(f, "*")?;
             }
         }
 
