@@ -39,6 +39,12 @@ enum Token {
     /// `<->`
     Equiv,
 
+    /// `==`
+    Eq,
+
+    /// `!=`
+    Neq,
+
     /// End of file
     Eof,
 
@@ -255,7 +261,24 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
 
             Some('!') => {
                 self.shift_chr();
-                Not
+
+                if let Some('=') = self.la_chr {
+                    self.shift_chr();
+                    Neq
+                } else {
+                    Not
+                }
+            },
+
+            Some('=') => {
+                self.shift_chr();
+
+                if let Some('=') = self.la_chr {
+                    self.shift_chr();
+                    Eq
+                } else {
+                    Unknown
+                }
             },
 
             Some(',') => {
@@ -331,16 +354,95 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
         self.or()
     }
 
+    fn args(&mut self) -> ParseResult<Vec<u64>> {
+        // args  :  Sym ',' args
+        //       :  Sym
+
+        self.binary_op(
+            &|t| t == Comma,
+            &|s| match s.la_tok {
+                Sym(n) => {
+                    s.shift_tok();
+                    Ok(vec![n])
+                },
+                _ => s.absent("Expected symbol")
+            },
+            &|mut lhs, mut rhs, _| {
+                lhs.append(&mut rhs);
+                lhs
+            },
+            "Expected arguments"
+        )
+    }
+
+    fn pred(&mut self) -> ParseResult<Expr> {
+        // pred  :  Sym '(' args ')'
+        //       |  Sym '==' Sym
+        //       |  Sym '!=' Sym
+        //       |  Sym
+
+        let la = self.la_tok;
+        let name = if let Sym(n) = la {
+            self.shift_tok();
+            n
+        } else {
+            return self.absent("Expected predicate");
+        };
+
+
+        match self.la_tok {
+            // pred  :  Sym '(' args ')'
+            ParL => {
+                self.shift_tok();
+                let res = self.args();
+                let la = self.la_tok;
+                match (res, la) {
+                    // Arguments parsed and we've got a closing )
+                    (Ok(args), ParR) => {
+                        self.shift_tok();
+                        Ok(pred(name, args))
+                    },
+
+                    // Arguments parsed but there is no closing )
+                    (Ok(_), _) => self.error("Expected ')'"),
+
+                    // Arguments failed to parse
+                    (Absent(m, c) | Error(m, c), _) => Error(m, c),
+                }
+            },
+
+            // pred  :  Sym '==' Sym
+            //       |  Sym '!=' Sym
+            t @ (Eq | Neq) => {
+                self.shift_tok();
+                let name_r = if let Sym(n) = self.la_tok {
+                    self.shift_tok();
+                    n
+                } else {
+                    return self.error("Expected symbol");
+                };
+
+                if t == Eq {
+                    Ok(eq(name, name_r))
+                } else {
+                    Ok(neq(name, name_r))
+                }
+            }
+
+            // pred  :  Sym
+            _ => Ok(sym(name)),
+        }
+    }
+
     fn atom(&mut self) -> ParseResult<Expr> {
-        // atom  :  Sym
+        // atom  :  pred
         //       |  '!' atom
         //       |  '(' expr ')'
 
         match self.la_tok {
             // atom  :  Sym
-            Sym(c) => {
-                self.shift_tok();
-                Ok(sym(c))
+            Sym(_) => {
+                self.pred()
             },
 
             // atom  :  '!' atom
@@ -376,10 +478,10 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
         }
     }
 
-    fn binary_op<T, L, A>(&mut self, token: &T, lower: &L, apply: &A, err: &str) -> ParseResult<Expr> where
+    fn binary_op<R, T, L, A>(&mut self, token: &T, lower: &L, apply: &A, err: &str) -> ParseResult<R> where
         T : Fn(Token) -> bool,
-        L : Fn(&mut Self) -> ParseResult<Expr>,
-        A : Fn(Expr, Expr, Token) -> Expr
+        L : Fn(&mut Self) -> ParseResult<R>,
+        A : Fn(R, R, Token) -> R
     {
         let res = lower(self);
         let la = self.la_tok;
@@ -487,7 +589,8 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
         // turnstile  :  exprs '|-' exprs
 
         let lhs = match self.exprs() {
-            Ok(lhs) => lhs,
+            Ok(lhs) => Some(lhs),
+            Absent(_, _) => None,
             e => return e
         };
         
@@ -507,7 +610,10 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
             return self.error("Expected EOF");
         }
 
-        return Ok(and(lhs, not(rhs)));
+        match lhs {
+            None => Ok(not(rhs)),
+            Some(lhs) => Ok(and(lhs, not(rhs)))
+        }
     }
 
     fn absent<T>(&self, message: &str) -> ParseResult<T> {

@@ -90,6 +90,7 @@ fn difference_b<T>(l: BTreeSet<T>, r: BTreeSet<T>) -> BTreeSet<T> where T : Ord 
 }
 
 
+#[allow(dead_code)]
 impl Clause {
     /// Creates a positive [Clause] with just one symbol.
     pub fn from_pos(c: Term) -> Self {
@@ -106,10 +107,15 @@ impl Clause {
     /// The method will panic if the expression is not atomic.
     fn from_atom(e: &Expr, neg: bool) -> Clause {
         match e {
-            Symbol(s) => if neg {
-                Self::from_neg(Term::Symbol(*s))
+            Pred(s, v) => if neg {
+                Self::from_neg(Term::Predicate(*s, v.clone()))
             } else {
-                Self::from_pos(Term::Symbol(*s))
+                Self::from_pos(Term::Predicate(*s, v.clone()))
+            },
+            Eq(l, r) => if neg {
+                Self::from_neg(Term::Equality(*l, *r))
+            } else {
+                Self::from_pos(Term::Equality(*l, *r))
             },
             Not(e) => Self::from_atom(e, !neg),
             e => panic!("Not in CNF: {e} is not an atom")
@@ -166,28 +172,98 @@ impl Clause {
         self.neg.is_empty() && self.pos.is_empty()
     }
 
+    /// If this clause is a single-term positive clause, returns its term.
+    pub fn pos_singleton(&self) -> Option<Term> {
+        if self.neg.is_empty() && self.pos.len() == 1 {
+            self.pos.iter().next().cloned()
+        } else {
+            None
+        }
+    }
+
+    /// If this clause is a single-term negative clause, returns its term.
+    pub fn neg_singleton(&self) -> Option<Term> {
+        if self.pos.is_empty() && self.neg.len() == 1 {
+            self.neg.iter().next().cloned()
+        } else {
+            None
+        }
+    }
+
     /// Returns the complexity of this clause. The complexity of a clause is the amount of terms of the clause. It
     /// is a measure of how far the clause is away from being a contradiction.
     pub fn complexity(&self) -> usize {
         self.neg.len() + self.pos.len()
+    }
+    
+    /// Substitutes all occurences of the symbol `from` with the symbol `to` in this clause.
+    pub fn substitute(self, from: u64, to: u64) -> Self {
+        Self {
+            pos: self.pos.into_iter().map(|t| t.substitute(from, to)).collect(),
+            neg: self.neg.into_iter().map(|t| t.substitute(from, to)).collect(),
+        }
     }
 }
 
 
 
 
+fn sub_name(n: u64, from: u64, to: u64) -> u64 {
+    if from == n {
+        to
+    } else {
+        n
+    }
+}
 
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum Term {
-    Symbol(u64),
+    Predicate(u64, Vec<u64>),
+    Equality(u64, u64),
+}
+
+impl Term {
+    pub fn substitute(self, from: u64, to: u64) -> Self {
+        match self {
+            Term::Predicate(n, v) => Term::Predicate(n, v.into_iter().map(|n| sub_name(n, from, to)).collect()),
+            Term::Equality(l, r) => Term::Equality(sub_name(l, from, to), sub_name(r, from, to)),
+        }
+    }
+
+    pub fn is_tautology(&self) -> bool {
+        if let Term::Equality(l, r) = self {
+            l == r
+        } else {
+            false
+        }
+    }
 }
 
 impl Display for Term {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Term::Symbol(n) => write!(f, "{n}"),
+            // Predicate: P(a, b, ...)
+            Term::Predicate(n, v) => {
+                write!(f, "{n}(")?;
+                let mut first = true;
+                for e in v {
+                    if first {
+                        first = false;
+                    } else {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{e}")?;
+                }
+                write!(f, ")")?;
+            },
+            Term::Equality(l, r) => {
+                write!(f, "{l} == {r}")?;
+            }
         }
+
+        Ok(())
     }
 }
 

@@ -21,6 +21,7 @@ Those ignored tokens not included, the exact syntax is as follows (starting from
 ```
 input:
     exprs '|-' exprs
+    '|-' exprs
 
 exprs:
     expr ',' exprs
@@ -45,9 +46,22 @@ impl:
     atom
 
 atom:
-    /[a-zA-Z][a-zA-Z0-9_]*/
+    pred
     '!' atom
     '(' expr ')'
+
+pred:
+    sym '(' args ')'
+    sym '==' sym
+    sym '!=' sym
+    sym
+
+args:
+    sym ',' args
+    sym
+
+sym:
+    /[a-zA-Z][a-zA-Z0-9_]*/
 ```
 
 ## Examples
@@ -60,6 +74,16 @@ atom:
 ```
 # A simple contradiction
 A |- !A
+```
+
+```
+# Equality
+P(a, b), a==b |- P(b, a)
+```
+
+```
+# Transitivity
+a==b, b==c |- c==a
 ```
 
 Various examples can be found in the `examples` folder.

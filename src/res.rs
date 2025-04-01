@@ -10,17 +10,42 @@ struct CandidateClause {
     clause: Clause
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 enum Resolvent {
     /// The resolution resolved a nontrivial clause
     Nontrivial(Clause),
 
-    /// The resolution resovled a tautology
-    Tautology,
+    /// The resolution resovled a tautology or an in other way pointless expression
+    Pointless,
 
     /// The resolution resolved a contradiction
     Contradiction
 }
+
+impl Resolvent {
+    fn cleanup(self) -> Self {
+        if let Resolvent::Nontrivial(mut clause) = self {
+
+            // If there is a positive tautology, the clause is a tautology itself
+            if clause.pos.iter().any(|e| e.is_tautology()) {
+                return Resolvent::Pointless;
+            }
+
+            // If there is a negative tautology, it's a contradiction instead, and we remove it
+            clause.neg.retain(|e| !e.is_tautology());
+
+            if clause.is_empty() {
+                return Resolvent::Contradiction;
+            }
+
+            Resolvent::Nontrivial(clause)
+        } else {
+            self
+        }
+    }
+}
+
+
 
 /// Resolves two clauses against eachother. Given two clauses
 /// `A1 | A2 | A3 | ... | B` and `!B | C1 | C2 | C3 | ...`, this computes the resolvent clause
@@ -33,9 +58,8 @@ enum Resolvent {
 /// rewritten back to `A1 | A2 | A3 | ... | C1 | C2 | C3 | ...`.
 ///
 /// There is some additional reasoning included in this function:
-/// - If the clauses are distinct and do not share a symbol in complementary form, the
-///   disjunction of the clauses is resolved. E.g. `A | B` and `C | D` resolve to
-///   `A | B | C | D`. It applies the inference `P, Q |- P | Q`.
+/// - If the clauses are distinct and do not share a symbol in complementary form, nothing is
+///   resolved.
 /// - If the clauses share multiple symbols in complementary form, one of these symbols is the
 ///   symbol that is resolved over. The remaining symbols form tautologies, which cause the
 ///   entire clause to be a tautology.
@@ -61,9 +85,9 @@ enum Resolvent {
 /// Thus, the return value of this function is:
 /// - [Resolvent::Contradiction] when both clauses are empty;
 /// - [Resolvent::Contradiction] when the clauses are of the form `A` and `!A`;
-/// - [Resolvent::Tautology] when the clauses share multiple symbols in complementary form;
+/// - [Resolvent::Pointless] when the clauses share multiple symbols in complementary form, or none at all;
 /// - [Resolvent::Nontrivial] in any other case.
-fn resolve(a: &Clause, b: &Clause) -> Resolvent {
+fn propositional_resolve(a: &Clause, b: &Clause) -> Resolvent {
     // Collect the unions of the positive and negative sets of the clauses
     let mut pos_u = BTreeSet::<Term>::new();
     let mut neg_u = BTreeSet::<Term>::new();
@@ -94,8 +118,12 @@ fn resolve(a: &Clause, b: &Clause) -> Resolvent {
         // If we remove more than one intersection, it means there is a tautology in the
         // clause. Any clause with a tautology is per definition a tautology itself.
         if iscs > 1 {
-            return Resolvent::Tautology;
+            return Resolvent::Pointless;
         }
+    }
+
+    if iscs == 0 {
+        return Resolvent::Pointless;
     }
 
     if pos_u.is_empty() && neg_u.is_empty() {
@@ -118,6 +146,34 @@ fn resolve(a: &Clause, b: &Clause) -> Resolvent {
             neg: neg_u
         })
     }
+}
+
+
+fn equals_resolve(base: &Clause, eq: &Clause) -> Option<Resolvent> {
+    match eq.pos_singleton() {
+        Some(Term::Equality(l, r)) => {
+            let right = base.clone().substitute(l, r);
+            Some(Resolvent::Nontrivial(right))
+        }
+        _ => None
+    }
+}
+
+
+fn resolve(a: &Clause, b: &Clause) -> Vec<Resolvent> {
+    let mut out = Vec::new();
+
+    out.push(propositional_resolve(a, b));
+
+    if let Some(res) = equals_resolve(a, b) {
+        out.push(res);
+    }
+
+    if let Some(res) = equals_resolve(b, a) {
+        out.push(res);
+    }
+
+    out
 }
 
 
@@ -151,18 +207,23 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
 
     // Start with the input on the "next" set
     for clause in stmt.clone() {
-        // If any input clause is empty, it's a contradiction, and we're done
-        if clause.is_empty() {
-            return stats;
-        }
+        match Resolvent::Nontrivial(clause).cleanup() {
+            // If any input clause is a tautology, it's pointless
+            Resolvent::Pointless => {},
 
-        // Insert with zero complexity since these clauses are trivial knowledge.
-        // It is possible to use the clause's actual complexity, but this seems to only
-        // slow down resolution.
-        next.insert(CandidateClause {
-            complexity: 0,
-            clause
-        });
+            // If any input clause is a contradiction, we're done early
+            Resolvent::Contradiction => return stats,
+
+            // Insert with zero complexity since these clauses are trivial knowledge.
+            // It is possible to use the clause's actual complexity, but this seems to only
+            // slow down resolution.
+            Resolvent::Nontrivial(clause) => {
+                next.insert(CandidateClause {
+                    complexity: 0,
+                    clause
+                });
+            },
+        };
     }
 
     // While there are elements in `next`, we keep adding them to our knowledge base.
@@ -177,23 +238,28 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
         // This is new knowledge, we need to update the `next` set with the new
         // candidate clauses we could learn from learning this clause
         for old in &knowledge {
-            match resolve(old, &new) {
-                // New nontrivial clause: add candidate if we did not already know
-                // about this clause
-                Resolvent::Nontrivial(clause) => {
-                    if !knowledge.contains(&clause) {
-                        next.insert(CandidateClause {
-                            complexity: clause.complexity(),
-                            clause
-                        });
+            let resolvents = resolve(old, &new);
+
+            for resolvent in resolvents {
+
+                match resolvent.cleanup() {
+                    // New nontrivial clause: add candidate if we did not already know
+                    // about this clause
+                    Resolvent::Nontrivial(clause) => {
+                        if !knowledge.contains(&clause) {
+                            next.insert(CandidateClause {
+                                complexity: clause.complexity(),
+                                clause
+                            });
+                        }
                     }
+
+                    // Contradictory clause: this proves unsatisfiability so we are done
+                    Resolvent::Contradiction => return stats,
+
+                    // Pointless clause: ignore it
+                    Resolvent::Pointless => {}
                 }
-
-                // Contradictory clause: this proves unsatisfiability so we are done
-                Resolvent::Contradiction => return stats,
-
-                // Tautology clause: this is useless
-                Resolvent::Tautology => {}
             }
         }
 
@@ -205,5 +271,6 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
     }
 
     // No contradictions were found, thus the expression is satisfiable
+    stats.satisfied = true;
     stats
 }

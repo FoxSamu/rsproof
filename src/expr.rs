@@ -1,8 +1,11 @@
 /// An expression syntax tree.
 #[derive(Hash, PartialEq, Eq, Clone)]
 pub enum Expr {
-    /// A simple symbol, e.g. `P` or `Q`. Symbols are always a single character.
-    Symbol(u64),
+    /// A predicate symbol, e.g. `P` or `Q`.
+    Pred(u64, Vec<u64>),
+
+    /// An equality, i.e. `... == ...`
+    Eq(u64, u64),
 
     /// An inverted expression, i.e. `!...`.
     Not(Box<Expr>),
@@ -33,9 +36,24 @@ pub fn not(n: Expr) -> Expr {
     Not(Box::new(n))
 }
 
-/// Creates a symbol expression, where the given character `c` is the symbol.
-pub fn sym(c: u64) -> Expr {
-    Symbol(c)
+/// Creates a symbol expression, where the given name `p` is the symbol.
+pub fn sym(p: u64) -> Expr {
+    Pred(p, vec![])
+}
+
+/// Creates an equality expression.
+pub fn eq(l: u64, r: u64) -> Expr {
+    Eq(l, r)
+}
+
+/// Creates an inequality expression.
+pub fn neq(l: u64, r: u64) -> Expr {
+    not(Eq(l, r))
+}
+
+/// Creates a predicate expression.
+pub fn pred(p: u64, args: Vec<u64>) -> Expr {
+    Pred(p, args)
 }
 
 /// Creates an implication of two expressions. That is, it creates the expression `l -> r`, in other words `!l | r`.
@@ -58,7 +76,8 @@ impl Expr {
     /// an inverted atom. `P` and `!!!P` are atoms, but `!(P | !Q)` is not.
     fn is_atom(&self) -> bool {
         match self {
-            Symbol(_) => true,
+            Pred(_, _) => true,
+            Eq(_, _) => true,
             Not(n) => n.is_atom(),
             _ => false
         }
@@ -173,8 +192,22 @@ impl Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Symbol(s) => write!(f, "{s}"),
+            Pred(s, v) => {
+                write!(f, "{s}(")?;
+                let mut first = true;
+                for e in v {
+                    if first {
+                        first = false;
+                    } else {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{e}")?;
+                }
+                write!(f, ")")
+            }
             Not(n) => write!(f, "!{n}"),
+            Eq(l, r) => write!(f, "({l}=={r})"),
             And(l, r) => write!(f, "({l}&{r})"),
             Or(l, r) => write!(f, "({l}|{r})")
         }
