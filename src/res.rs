@@ -16,7 +16,7 @@ enum Resolvent {
     Nontrivial(Clause),
 
     /// The resolution resovled a tautology or an in other way pointless expression
-    Pointless,
+    Tautology,
 
     /// The resolution resolved a contradiction
     Contradiction
@@ -28,7 +28,7 @@ impl Resolvent {
 
             // If there is a positive tautology, the clause is a tautology itself
             if clause.pos.iter().any(|e| e.is_tautology()) {
-                return Resolvent::Pointless;
+                return Resolvent::Tautology;
             }
 
             // If there is a negative tautology, it's a contradiction instead, and we remove it
@@ -85,7 +85,7 @@ impl Resolvent {
 /// Thus, the return value of this function is:
 /// - [Resolvent::Contradiction] when both clauses are empty;
 /// - [Resolvent::Contradiction] when the clauses are of the form `A` and `!A`;
-/// - [Resolvent::Pointless] when the clauses share multiple symbols in complementary form, or none at all;
+/// - [Resolvent::Tautology] when the clauses share multiple symbols in complementary form, or none at all;
 /// - [Resolvent::Nontrivial] in any other case.
 fn propositional_resolve(a: &Clause, b: &Clause) -> Resolvent {
     // Collect the unions of the positive and negative sets of the clauses
@@ -118,12 +118,12 @@ fn propositional_resolve(a: &Clause, b: &Clause) -> Resolvent {
         // If we remove more than one intersection, it means there is a tautology in the
         // clause. Any clause with a tautology is per definition a tautology itself.
         if iscs > 1 {
-            return Resolvent::Pointless;
+            return Resolvent::Tautology;
         }
     }
 
     if iscs == 0 {
-        return Resolvent::Pointless;
+        return Resolvent::Tautology;
     }
 
     if pos_u.is_empty() && neg_u.is_empty() {
@@ -149,6 +149,9 @@ fn propositional_resolve(a: &Clause, b: &Clause) -> Resolvent {
 }
 
 
+/// Causes a substitution in `base` if `eq` is of the form `a == b`. If it is,
+/// all instances of `a` are replaced with `b` in `base`. If it isn't, [None]
+/// is returned.
 fn equals_resolve(base: &Clause, eq: &Clause) -> Option<Resolvent> {
     match eq.pos_singleton() {
         Some(Term::Equality(l, r)) => {
@@ -160,6 +163,7 @@ fn equals_resolve(base: &Clause, eq: &Clause) -> Option<Resolvent> {
 }
 
 
+/// Finds all resolvents between the two clauses.
 fn resolve(a: &Clause, b: &Clause) -> Vec<Resolvent> {
     let mut out = Vec::new();
 
@@ -209,7 +213,7 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
     for clause in stmt.clone() {
         match Resolvent::Nontrivial(clause).cleanup() {
             // If any input clause is a tautology, it's pointless
-            Resolvent::Pointless => {},
+            Resolvent::Tautology => {},
 
             // If any input clause is a contradiction, we're done early
             Resolvent::Contradiction => return stats,
@@ -258,7 +262,7 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
                     Resolvent::Contradiction => return stats,
 
                     // Pointless clause: ignore it
-                    Resolvent::Pointless => {}
+                    Resolvent::Tautology => {}
                 }
             }
         }
