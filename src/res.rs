@@ -1,6 +1,7 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::cnf::{Clause, Term};
+use crate::cnf::{Clause, Atom};
+use crate::proof::{write_proof, Proof, Step};
 
 /// A candidate clause, tracking its complexity. This struct orders clauses by complexity when used
 /// in a [BTreeSet], allowing us to prioritise low-complexity clauses.
@@ -43,6 +44,22 @@ impl Resolvent {
             self
         }
     }
+}
+
+
+/// The derivation of a clause in the resolution proof.
+/// The resolver tracks where it derived clauses from, so it can trace back
+/// these derivations to generate a proof.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+pub enum Derivation {
+    /// The clause was a premise to the proof
+    Premise,
+
+    /// The clause is the resolvent of two other clauses
+    Resolved(Clause, Clause),
+
+    /// The clause is the substitution of another given an equality
+    Substituted(Clause, Clause),
 }
 
 
@@ -89,8 +106,8 @@ impl Resolvent {
 /// - [Resolvent::Nontrivial] in any other case.
 fn propositional_resolve(a: &Clause, b: &Clause) -> Resolvent {
     // Collect the unions of the positive and negative sets of the clauses
-    let mut pos_u = BTreeSet::<Term>::new();
-    let mut neg_u = BTreeSet::<Term>::new();
+    let mut pos_u = BTreeSet::<Atom>::new();
+    let mut neg_u = BTreeSet::<Atom>::new();
 
     pos_u.extend(a.pos.clone());
     pos_u.extend(b.pos.clone());
@@ -98,7 +115,7 @@ fn propositional_resolve(a: &Clause, b: &Clause) -> Resolvent {
     neg_u.extend(b.neg.clone());
 
     // Now find the intersection between these two sets
-    let mut isc = BTreeSet::<Term>::new();
+    let mut isc = BTreeSet::<Atom>::new();
     for term in pos_u.intersection(&neg_u) {
         isc.insert(term.clone());
     }
@@ -154,7 +171,7 @@ fn propositional_resolve(a: &Clause, b: &Clause) -> Resolvent {
 /// is returned.
 fn equals_resolve(base: &Clause, eq: &Clause) -> Option<Resolvent> {
     match eq.pos_singleton() {
-        Some(Term::Equality(l, r)) => {
+        Some(Atom::Equality(l, r)) => {
             let right = base.clone().substitute(l, r);
             Some(Resolvent::Nontrivial(right))
         }
@@ -164,17 +181,17 @@ fn equals_resolve(base: &Clause, eq: &Clause) -> Option<Resolvent> {
 
 
 /// Finds all resolvents between the two clauses.
-fn resolve(a: &Clause, b: &Clause) -> Vec<Resolvent> {
+fn resolve(a: &Clause, b: &Clause) -> Vec<(Resolvent, Derivation)> {
     let mut out = Vec::new();
 
-    out.push(propositional_resolve(a, b));
+    out.push((propositional_resolve(a, b), Derivation::Resolved(a.clone(), b.clone())));
 
     if let Some(res) = equals_resolve(a, b) {
-        out.push(res);
+        out.push((res, Derivation::Substituted(a.clone(), b.clone())));
     }
 
     if let Some(res) = equals_resolve(b, a) {
-        out.push(res);
+        out.push((res, Derivation::Substituted(b.clone(), a.clone())));
     }
 
     out
@@ -188,7 +205,26 @@ pub struct Resolution {
 
     /// The amount of clauses it learned during resolution.
     pub clauses_learned: u64,
+
+    /// The proof
+    pub proof: Option<Proof>
 }
+
+impl Resolution {
+    fn write_proof(mut self, mut knowledge: BTreeMap<Clause, Derivation>, final_derivation: Derivation) -> Self {
+        knowledge.insert(Clause::empty(), final_derivation);
+
+        if self.satisfied {
+            self.proof = Some(write_proof(&knowledge));
+        } else {
+            self.proof = None;
+        }
+
+        self
+    }
+}
+
+
 
 
 /// Given a set of [Clause]s representing an expression in CNF, this function determines the satisfiability
@@ -198,15 +234,16 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
     // work with smaller expressions (the smaller, the more likely it is to be a contradiction)
 
     // Knowledge base
-    let mut knowledge = BTreeSet::new();
+    let mut knowledge = BTreeMap::new();
 
     // The next resolvents that can be added to the knowledge base
     // The B-Tree helps us keep them sorted by complexity
-    let mut next = BTreeSet::new();
+    let mut next = BTreeMap::new();
 
     let mut stats = Resolution {
         satisfied: false,
-        clauses_learned: 0
+        clauses_learned: 0,
+        proof: None
     };
 
     // Start with the input on the "next" set
@@ -216,7 +253,7 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
             Resolvent::Tautology => {},
 
             // If any input clause is a contradiction, we're done early
-            Resolvent::Contradiction => return stats,
+            Resolvent::Contradiction => return stats.write_proof(knowledge, Derivation::Premise),
 
             // Insert with zero complexity since these clauses are trivial knowledge.
             // It is possible to use the clause's actual complexity, but this seems to only
@@ -225,41 +262,41 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
                 next.insert(CandidateClause {
                     complexity: 0,
                     clause
-                });
+                }, Derivation::Premise);
             },
         };
     }
 
     // While there are elements in `next`, we keep adding them to our knowledge base.
-    while let Some(cand) = next.pop_first() {
+    while let Some((cand, deriv)) = next.pop_first() {
         let new = cand.clause;
 
-        if knowledge.contains(&new) {
+        if knowledge.contains_key(&new) {
             continue; // Old news
         }
 
 
         // This is new knowledge, we need to update the `next` set with the new
         // candidate clauses we could learn from learning this clause
-        for old in &knowledge {
+        for (old, _) in &knowledge {
             let resolvents = resolve(old, &new);
 
-            for resolvent in resolvents {
+            for (resolvent, resolvent_deriv) in resolvents {
 
                 match resolvent.cleanup() {
-                    // New nontrivial clause: add candidate if we did not already know
+                    // Nontrivial clause: add candidate if we did not already know
                     // about this clause
                     Resolvent::Nontrivial(clause) => {
-                        if !knowledge.contains(&clause) {
+                        if !knowledge.contains_key(&clause) {
                             next.insert(CandidateClause {
                                 complexity: clause.complexity(),
                                 clause
-                            });
+                            }, resolvent_deriv);
                         }
                     }
 
                     // Contradictory clause: this proves unsatisfiability so we are done
-                    Resolvent::Contradiction => return stats,
+                    Resolvent::Contradiction => return stats.write_proof(knowledge, resolvent_deriv),
 
                     // Pointless clause: ignore it
                     Resolvent::Tautology => {}
@@ -269,7 +306,7 @@ pub fn resolution(stmt: &BTreeSet<Clause>) -> Resolution {
 
         // Only add the clause to knowledge now, so that the previous
         // loop does not need to worry about resolving a clause with itself
-        knowledge.insert(new);
+        knowledge.insert(new, deriv);
 
         stats.clauses_learned += 1;
     }

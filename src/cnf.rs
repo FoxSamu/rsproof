@@ -1,8 +1,8 @@
-use std::collections::BTreeSet;
-use std::fmt::{Debug, Display};
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::{format, Debug, Display};
 use std::hash::Hash;
 
-use crate::expr::Expr;
+use crate::expr::{Expr, Name};
 use crate::expr::Expr::*;
 
 
@@ -15,10 +15,10 @@ use crate::expr::Expr::*;
 #[derive(PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub struct Clause {
     /// The set of positive symbols in this clause
-    pub pos: BTreeSet<Term>,
+    pub pos: BTreeSet<Atom>,
 
     /// The set of negative symbols in this clause
-    pub neg: BTreeSet<Term>
+    pub neg: BTreeSet<Atom>
 }
 
 // Hashing for clauses.
@@ -92,13 +92,17 @@ fn difference_b<T>(l: BTreeSet<T>, r: BTreeSet<T>) -> BTreeSet<T> where T : Ord 
 
 #[allow(dead_code)]
 impl Clause {
+    pub fn empty() -> Self {
+        Self { pos: BTreeSet::from([]), neg: BTreeSet::from([]) }
+    }
+
     /// Creates a positive [Clause] with just one symbol.
-    pub fn from_pos(c: Term) -> Self {
+    pub fn from_pos(c: Atom) -> Self {
         Self { pos: BTreeSet::from([c]), neg: BTreeSet::from([]) }
     }
 
     /// Creates a negative [Clause] with just one symbol.
-    pub fn from_neg(c: Term) -> Self {
+    pub fn from_neg(c: Atom) -> Self {
         Self { pos: BTreeSet::from([]), neg: BTreeSet::from([c]) }
     }
 
@@ -108,19 +112,19 @@ impl Clause {
     fn from_atom(e: &Expr, neg: bool) -> Clause {
         match e {
             Pred(s, v) => if neg {
-                Self::from_neg(Term::Predicate(*s, v.clone()))
+                Self::from_neg(Atom::Predicate(*s, v.clone()))
             } else {
-                Self::from_pos(Term::Predicate(*s, v.clone()))
+                Self::from_pos(Atom::Predicate(*s, v.clone()))
             },
             Eq(l, r) => if neg {
-                Self::from_neg(Term::Equality(*l, *r))
+                Self::from_neg(Atom::Equality(*l, *r))
             } else {
-                Self::from_pos(Term::Equality(*l, *r))
+                Self::from_pos(Atom::Equality(*l, *r))
             },
-            Taut => if neg {
-                Self::from_neg(Term::Tautology)
+            True => if neg {
+                Self::from_neg(Atom::Tautology)
             } else {
-                Self::from_pos(Term::Tautology)
+                Self::from_pos(Atom::Tautology)
             },
             Not(e) => Self::from_atom(e, !neg),
             e => panic!("Not in CNF: {e} is not an atom")
@@ -178,7 +182,7 @@ impl Clause {
     }
 
     /// If this clause is a single-term positive clause, returns its term.
-    pub fn pos_singleton(&self) -> Option<Term> {
+    pub fn pos_singleton(&self) -> Option<Atom> {
         if self.neg.is_empty() && self.pos.len() == 1 {
             self.pos.iter().next().cloned()
         } else {
@@ -187,7 +191,7 @@ impl Clause {
     }
 
     /// If this clause is a single-term negative clause, returns its term.
-    pub fn neg_singleton(&self) -> Option<Term> {
+    pub fn neg_singleton(&self) -> Option<Atom> {
         if self.pos.is_empty() && self.neg.len() == 1 {
             self.neg.iter().next().cloned()
         } else {
@@ -208,6 +212,29 @@ impl Clause {
             neg: self.neg.into_iter().map(|t| t.substitute(from, to)).collect(),
         }
     }
+
+    pub fn write_named(&self, name_table: &BTreeMap<Name, String>, str: &mut String) {
+        let mut first = true;
+        for c in &self.pos {
+            if first {
+                first = false;
+            } else {
+                str.push_str(" | ");
+            }
+
+            c.write_named(name_table, str, false);
+        }
+
+        for c in &self.neg {
+            if first {
+                first = false;
+            } else {
+                str.push_str(" | ");
+            }
+
+            c.write_named(name_table, str, true);
+        }
+    }
 }
 
 
@@ -223,35 +250,80 @@ fn sub_name(n: u64, from: u64, to: u64) -> u64 {
 
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
-pub enum Term {
-    Predicate(u64, Vec<u64>),
-    Equality(u64, u64),
+pub enum Atom {
+    Predicate(Name, Vec<Name>),
+    Equality(Name, Name),
     Tautology
 }
 
-impl Term {
-    pub fn substitute(self, from: u64, to: u64) -> Self {
+impl Atom {
+    pub fn substitute(self, from: Name, to: Name) -> Self {
         match self {
-            Term::Predicate(n, v) => Term::Predicate(n, v.into_iter().map(|n| sub_name(n, from, to)).collect()),
-            Term::Equality(l, r) => Term::Equality(sub_name(l, from, to), sub_name(r, from, to)),
-            Term::Tautology => Term::Tautology,
+            Atom::Predicate(n, v) => Atom::Predicate(n, v.into_iter().map(|n| sub_name(n, from, to)).collect()),
+            Atom::Equality(l, r) => Atom::Equality(sub_name(l, from, to), sub_name(r, from, to)),
+            Atom::Tautology => Atom::Tautology,
         }
     }
 
     pub fn is_tautology(&self) -> bool {
         match self {
-            Term::Equality(l, r) => l == r,
-            Term::Predicate(_, _) => false,
-            Term::Tautology => true,
+            Atom::Equality(l, r) => l == r,
+            Atom::Predicate(_, _) => false,
+            Atom::Tautology => true,
+        }
+    }
+
+    pub fn write_named(&self, name_table: &BTreeMap<Name, String>, str: &mut String, neg: bool) {
+        fn write_name(str: &mut String, name_table: &BTreeMap<Name, String>, name: Name) {
+            let s_name = name_table.get(&name);
+            match s_name {
+                Some(n) => str.extend(n.chars()),
+                None => str.extend(format!("{name}").chars()),
+            }
+        }
+
+        match self {
+            Atom::Predicate(n, v) => {
+                if neg {
+                    str.push('!');
+                }
+
+                write_name(str, name_table, *n);
+
+                if !v.is_empty() {
+                    str.push('(');
+                    let mut first = true;
+                    for vn in v {
+                        if first {
+                            first = false;
+                        } else {
+                            str.push_str(", ");
+                        }
+
+                        write_name(str, name_table, *vn);
+                    }
+                    str.push(')');
+                }
+            },
+            Atom::Equality(l, r) => {
+                write_name(str, name_table, *l);
+                if neg {
+                    str.push_str(" != ");
+                } else {
+                    str.push_str(" == ");
+                }
+                write_name(str, name_table, *r);
+            },
+            Atom::Tautology => str.push('*'),
         }
     }
 }
 
-impl Display for Term {
+impl Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             // Predicate: P(a, b, ...)
-            Term::Predicate(n, v) => {
+            Atom::Predicate(n, v) => {
                 write!(f, "{n}(")?;
                 let mut first = true;
                 for e in v {
@@ -265,10 +337,10 @@ impl Display for Term {
                 }
                 write!(f, ")")?;
             },
-            Term::Equality(l, r) => {
+            Atom::Equality(l, r) => {
                 write!(f, "{l} == {r}")?;
             },
-            Term::Tautology => {
+            Atom::Tautology => {
                 write!(f, "*")?;
             }
         }
@@ -277,7 +349,7 @@ impl Display for Term {
     }
 }
 
-impl Debug for Term {
+impl Debug for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self, f)
     }

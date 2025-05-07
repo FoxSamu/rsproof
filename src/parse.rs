@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::Read;
 
 use Token::*;
@@ -158,7 +158,8 @@ struct Parser<I> where I : Iterator<Item = char> {
     pos: ParseCoord,
 
     /// The symbol table, which maps names to integers
-    symbols: HashMap<String, u64>,
+    symbols: BTreeMap<String, u64>,
+    symbols_rev: BTreeMap<u64, String>,
     next_sym: u64
 }
 
@@ -171,7 +172,8 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
             la_chr: None,
             la_tok: Unknown,
             pos: ParseCoord::new(),
-            symbols: HashMap::new(),
+            symbols: BTreeMap::new(),
+            symbols_rev: BTreeMap::new(),
             next_sym: 0
         };
         o.shift_chr();
@@ -358,7 +360,8 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
                 let sym = self.next_sym;
                 self.next_sym += 1;
 
-                self.symbols.insert(name, sym);
+                self.symbols.insert(name.clone(), sym);
+                self.symbols_rev.insert(sym, name);
 
                 sym
             }
@@ -664,16 +667,16 @@ fn make_msg(m: String, c: ParseCoord) -> String {
     return out;
 }
 
-pub fn parse_string(str: &String) -> Result<Expr, String> {
+pub fn parse_string(str: &String) -> Result<(Expr, BTreeMap<u64, String>), String> {
     let mut parser = Parser::new(str.chars());
 
     match parser.turnstile() {
-        Ok(e) => Result::Ok(e),
+        Ok(e) => Result::Ok((e, parser.symbols_rev)),
         Absent(m, c) | Error(m, c) => Err(make_msg(m, c))
     }
 }
 
-pub fn parse<R>(mut r: R) -> Result<Expr, String> where R : Read {
+pub fn parse<R>(mut r: R) -> Result<(Expr, BTreeMap<u64, String>), String> where R : Read {
     let mut str = String::new();
 
     r.read_to_string(&mut str).map_err(|_| String::from("IO Error"))?;

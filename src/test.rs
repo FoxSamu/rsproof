@@ -12,7 +12,7 @@ fn prove(statement: &str) -> bool {
     }
 
     // Convert to CNF
-    let cnf = parsed.unwrap().to_cnf();
+    let cnf = parsed.unwrap().0.to_cnf();
     let clauses = Clause::from_cnf(&cnf);
 
     // Resolve

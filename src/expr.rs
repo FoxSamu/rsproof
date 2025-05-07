@@ -1,14 +1,25 @@
+use std::collections::BTreeSet;
+use std::fmt::{Debug, Display, Formatter, Write};
+
+use Expr::*;
+use Term::*;
+
+use crate::fmt::{NamedDisplay, NamedFormatter};
+
+
+pub type Name = u64;
+
 /// An expression syntax tree.
 #[derive(Hash, PartialEq, Eq, Clone)]
 pub enum Expr {
     /// A predicate symbol, e.g. `P` or `Q`.
-    Pred(u64, Vec<u64>),
+    Pred(Name, Vec<Name>),
 
     /// An equality, i.e. `... == ...`
-    Eq(u64, u64),
+    Eq(Name, Name),
 
     /// A tautology
-    Taut,
+    True,
 
     /// An inverted expression, i.e. `!...`.
     Not(Box<Expr>),
@@ -20,18 +31,40 @@ pub enum Expr {
     Or(Box<Expr>, Box<Expr>)
 }
 
-use std::fmt::{Debug, Display};
+/// A term denotes a non-boolean value.
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum Term {
+    Const(Name),
+    Var(Name),
+    Func(Name, Vec<Term>)
+}
 
-use Expr::*;
+impl Term {
+    pub fn contains_var(&self, var: &Name) -> bool {
+        match self {
+            Const(_) => false,
+            Var(v) => *v == *var,
+            Func(_, args) => args.iter().any(|t| t.contains_var(var)),
+        }
+    }
+
+    pub fn vars(&self) -> BTreeSet<Name> {
+        match self {
+            Const(_) => BTreeSet::new(),
+            Var(v) => BTreeSet::from([*v]),
+            Func(_, args) => args.iter().flat_map(|t| t.vars()).collect()
+        }
+    }
+}
 
 /// Creates a tautology expression.
 pub fn taut() -> Expr {
-    Taut
+    True
 }
 
 /// Creates a contradiction expression.
 pub fn cont() -> Expr {
-    not(Taut)
+    not(True)
 }
 
 /// Creates a disjunction of two expressions. That is, it creates the expression `l | r`.
@@ -89,7 +122,7 @@ impl Expr {
     /// an inverted atom. `P` and `!!!P` are atoms, but `!(P | !Q)` is not.
     fn is_atom(&self) -> bool {
         match self {
-            Pred(_, _) | Eq(_, _) | Taut => true,
+            Pred(_, _) | Eq(_, _) | True => true,
             Not(n) => n.is_atom(),
             _ => false
         }
@@ -202,33 +235,109 @@ impl Expr {
 
 // Formatting for Expr, print them as nice expressions.
 impl Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        NamedDisplay::fmt_raw(self, f)
+    }
+}
+
+impl Debug for Expr {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        NamedDisplay::fmt_raw(self, f)
+    }
+}
+
+impl NamedDisplay for Expr {
+    fn named_fmt(&self, f: &mut NamedFormatter) -> std::fmt::Result {
         match self {
             Pred(s, v) => {
-                write!(f, "{s}(")?;
+                f.write_name(*s)?;
+                f.write_char('(')?;
                 let mut first = true;
                 for e in v {
                     if first {
                         first = false;
                     } else {
-                        write!(f, ", ")?;
+                        f.write_str(", ")?;
                     }
 
-                    write!(f, "{e}")?;
+                    f.write_name(*e)?;
                 }
-                write!(f, ")")
+                f.write_char(')')?;
             }
-            Taut => write!(f, "*"),
-            Not(n) => write!(f, "!{n}"),
-            Eq(l, r) => write!(f, "({l}=={r})"),
-            And(l, r) => write!(f, "({l}&{r})"),
-            Or(l, r) => write!(f, "({l}|{r})")
+            True => f.write_char('*')?,
+            Not(n) => {
+                f.write_char('!')?;
+                f.write_named(n)?;
+            },
+            Eq(l, r) => {
+                f.write_char('(')?;
+                f.write_name(*l)?;
+                f.write_str("==")?;
+                f.write_name(*r)?;
+                f.write_char(')')?;
+            },
+            And(l, r) => {
+                f.write_char('(')?;
+                f.write_named(l)?;
+                f.write_char('&')?;
+                f.write_named(r)?;
+                f.write_char(')')?;
+            },
+            Or(l, r) => {
+                f.write_char('(')?;
+                f.write_named(l)?;
+                f.write_char('|')?;
+                f.write_named(r)?;
+                f.write_char(')')?;
+            }
         }
+
+        Ok(())
     }
 }
 
-impl Debug for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self, f)
+impl Display for Term {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        NamedDisplay::fmt_raw(self, f)
     }
 }
+
+impl Debug for Term {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        NamedDisplay::fmt_raw(self, f)
+    }
+}
+
+impl NamedDisplay for Term {
+    fn named_fmt(&self, f: &mut NamedFormatter) -> std::fmt::Result {
+        match self {
+            Const(n) => {
+                f.write_name(*n)?;
+            },
+
+            Var(n) => {
+                f.write_char('$')?;
+                f.write_name(*n)?;
+            },
+
+            Func(s, v) => {
+                f.write_name(*s)?;
+                f.write_char('(')?;
+                let mut first = true;
+                for e in v {
+                    if first {
+                        first = false;
+                    } else {
+                        f.write_str(", ")?;
+                    }
+
+                    e.named_fmt(f)?;
+                }
+                f.write_char(')')?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
