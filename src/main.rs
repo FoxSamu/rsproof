@@ -1,13 +1,10 @@
-mod expr;
+mod expro;
 mod cnf;
 mod res;
 mod parse;
 mod proof;
-mod fmt;
+mod fmto;
 mod unify;
-
-#[cfg(test)]
-mod test;
 
 use std::collections::BTreeSet;
 use std::env;
@@ -18,18 +15,30 @@ use cnf::Clause;
 use parse::parse;
 use proof::format_proof;
 use res::resolution;
-use expr::Term::*;
-use unify::unify;
+
+/// Expression trees.
+mod expr;
+
+/// Normal forms (CNF and DNF).
+mod nf;
+
+/// Unification and unifiers.
+mod uni;
+
+/// Formatting module that formats numeric names with human-readable names.
+mod fmt;
+
+/// Parsing module.
+mod parser;
+
+/// Miscellaneous utilities.
+mod util;
+
+#[cfg(test)]
+mod test;
+
 
 fn main() -> ExitCode {
-    let a = Func(0, vec![Func(1, vec![Var(2)]), Var(2)]);
-    let b = Func(0, vec![Var(3), Const(4)]);
-
-    let unify = unify(vec![a], vec![b]);
-    dbg!(unify);
-
-    //////
-    
     let args: BTreeSet<String> = env::args().collect();
     let verbose = args.contains(&String::from("-v"));
 
@@ -43,8 +52,8 @@ fn main() -> ExitCode {
 
     // Convert to CNF
     let (expr, name_table) = parsed.unwrap();
-    let cnf = expr.to_cnf();
-    let clauses = Clause::from_cnf(&cnf);
+    let cnf = dbg!(expr.to_cnf());
+    let clauses = dbg!(Clause::from_cnf(&cnf));
 
     // Resolve
     let resolution = resolution(&clauses);
@@ -60,9 +69,10 @@ fn main() -> ExitCode {
     if verbose {
         println!("Clauses learned:    {}", resolution.clauses_learned);
         if let Some(proof) = resolution.proof {
+            println!("Proof:");
             let fmt = format_proof(&proof, &name_table);
             for line in fmt {
-                println!("{line}");
+                println!("  {line}");
             }
         }
     }

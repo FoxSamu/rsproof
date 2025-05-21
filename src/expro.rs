@@ -4,7 +4,8 @@ use std::fmt::{Debug, Display, Formatter, Write};
 use Expr::*;
 use Term::*;
 
-use crate::fmt::{NamedDisplay, NamedFormatter};
+use crate::fmto::{NamedDisplay, NamedFormatter};
+use crate::unify::{Unifiable, Unifier};
 
 
 pub type Name = u64;
@@ -13,10 +14,10 @@ pub type Name = u64;
 #[derive(Hash, PartialEq, Eq, Clone)]
 pub enum Expr {
     /// A predicate symbol, e.g. `P` or `Q`.
-    Pred(Name, Vec<Name>),
+    Pred(Name, Vec<Term>),
 
     /// An equality, i.e. `... == ...`
-    Eq(Name, Name),
+    Eq(Term, Term),
 
     /// A tautology
     True,
@@ -55,6 +56,40 @@ impl Term {
             Func(_, args) => args.iter().flat_map(|t| t.vars()).collect()
         }
     }
+
+    pub fn unify(&self, unifier: &Unifier) -> Term {
+        match self {
+            Const(cst) => Const(*cst),
+            Var(var) => unifier.get(var).cloned().unwrap_or(Var(*var)),
+            Func(fun, args) => Func(*fun, args.into_iter().map(|e| e.unify(unifier)).collect()),
+        }
+    }
+
+    pub fn substitute(&self, from: Name, to: Name) -> Term {
+        fn map(name: Name, from: Name, to: Name) -> Name {
+            if name == from {
+                to
+            } else {
+                name
+            }
+        }
+
+        match self {
+            Const(cst) => Const(map(*cst, from, to)),
+            Var(var) => Var(map(*var, from, to)),
+            Func(fun, args) => Func(*fun, args.into_iter().map(|e| e.substitute(from, to)).collect()),
+        }
+    }
+}
+
+impl Unifiable for Term {
+    fn apply(self, unifier: &Unifier) -> Self {
+        match self {
+            Const(cst) => Const(cst),
+            Var(var) => unifier.get(&var).cloned().unwrap_or(Var(var)),
+            Func(fun, args) => Func(fun, args.apply(unifier)),
+        }
+    }
 }
 
 /// Creates a tautology expression.
@@ -83,22 +118,22 @@ pub fn not(n: Expr) -> Expr {
 }
 
 /// Creates a symbol expression, where the given name `p` is the symbol.
-pub fn sym(p: u64) -> Expr {
+pub fn sym(p: Name) -> Expr {
     Pred(p, vec![])
 }
 
 /// Creates an equality expression.
-pub fn eq(l: u64, r: u64) -> Expr {
+pub fn eq(l: Term, r: Term) -> Expr {
     Eq(l, r)
 }
 
 /// Creates an inequality expression.
-pub fn neq(l: u64, r: u64) -> Expr {
+pub fn neq(l: Term, r: Term) -> Expr {
     not(Eq(l, r))
 }
 
 /// Creates a predicate expression.
-pub fn pred(p: u64, args: Vec<u64>) -> Expr {
+pub fn pred(p: Name, args: Vec<Term>) -> Expr {
     Pred(p, args)
 }
 
@@ -233,6 +268,19 @@ impl Expr {
     }
 }
 
+impl Unifiable for Expr {
+    fn apply(self, unifier: &Unifier) -> Self {
+        match self {
+            Pred(pred, args) => Pred(pred, args.apply(unifier)),
+            Eq(lhs, rhs) => Eq(lhs.apply(unifier), rhs.apply(unifier)),
+            True => True,
+            Not(rhs) => not((*rhs).apply(unifier)),
+            And(lhs, rhs) => and((*lhs).apply(unifier), (*rhs).apply(unifier)),
+            Or(lhs, rhs) => or((*lhs).apply(unifier), (*rhs).apply(unifier))
+        }
+    }
+}
+
 // Formatting for Expr, print them as nice expressions.
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
@@ -260,7 +308,7 @@ impl NamedDisplay for Expr {
                         f.write_str(", ")?;
                     }
 
-                    f.write_name(*e)?;
+                    e.named_fmt(f)?;
                 }
                 f.write_char(')')?;
             }
@@ -271,9 +319,9 @@ impl NamedDisplay for Expr {
             },
             Eq(l, r) => {
                 f.write_char('(')?;
-                f.write_name(*l)?;
+                l.named_fmt(f)?;
                 f.write_str("==")?;
-                f.write_name(*r)?;
+                r.named_fmt(f)?;
                 f.write_char(')')?;
             },
             And(l, r) => {

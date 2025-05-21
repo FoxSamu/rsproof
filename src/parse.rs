@@ -4,7 +4,7 @@ use std::io::Read;
 use Token::*;
 use ParseResult::*;
 
-use crate::expr::*;
+use crate::expro::*;
 
 /// A token.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -373,7 +373,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
         self.or()
     }
 
-    fn args(&mut self) -> ParseResult<Vec<u64>> {
+    fn args(&mut self) -> ParseResult<Vec<Term>> {
         // args  :  Sym ',' args
         //       :  Sym
 
@@ -382,7 +382,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
             &|s| match s.la_tok {
                 Sym(n) => {
                     s.shift_tok();
-                    Ok(vec![n])
+                    Ok(vec![Term::Const(n)])
                 },
                 _ => s.absent("Expected symbol")
             },
@@ -442,9 +442,9 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
                 };
 
                 if t == Eq {
-                    Ok(eq(name, name_r))
+                    Ok(eq(Term::Const(name), Term::Const(name_r)))
                 } else {
-                    Ok(neq(name, name_r))
+                    Ok(neq(Term::Const(name), Term::Const(name_r)))
                 }
             }
 

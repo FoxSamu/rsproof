@@ -138,3 +138,8 @@ fn long() {
 fn cont2() {
     unsat("P |- !P")
 }
+
+#[test]
+fn hard() {
+    unsat("P <-> (Q | P), P, !Q |- R")
+}

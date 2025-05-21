@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::cnf::{Clause, Atom};
+use crate::expro::Term;
 use crate::proof::{write_proof, Proof, Step};
 
 /// A candidate clause, tracking its complexity. This struct orders clauses by complexity when used
@@ -171,7 +172,7 @@ fn propositional_resolve(a: &Clause, b: &Clause) -> Resolvent {
 /// is returned.
 fn equals_resolve(base: &Clause, eq: &Clause) -> Option<Resolvent> {
     match eq.pos_singleton() {
-        Some(Atom::Equality(l, r)) => {
+        Some(Atom::Equality(Term::Const(l), Term::Const(r))) => {
             let right = base.clone().substitute(l, r);
             Some(Resolvent::Nontrivial(right))
         }
@@ -214,7 +215,7 @@ impl Resolution {
     fn write_proof(mut self, mut knowledge: BTreeMap<Clause, Derivation>, final_derivation: Derivation) -> Self {
         knowledge.insert(Clause::empty(), final_derivation);
 
-        if self.satisfied {
+        if !self.satisfied {
             self.proof = Some(write_proof(&knowledge));
         } else {
             self.proof = None;

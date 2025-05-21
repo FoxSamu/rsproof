@@ -1,9 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::{format, Debug, Display};
+use std::fmt::{format, Debug, Display, Write};
 use std::hash::Hash;
 
-use crate::expr::{Expr, Name};
-use crate::expr::Expr::*;
+use crate::expro::{Expr, Name, Term};
+use crate::expro::Expr::*;
+use crate::fmto::NamedDisplay;
+use crate::unify::{self, unify, Unifiable, Unifier};
 
 
 /// A clause is a disjunction of atom expressions. That is, this struct represents a conjunction of symbols,
@@ -117,9 +119,9 @@ impl Clause {
                 Self::from_pos(Atom::Predicate(*s, v.clone()))
             },
             Eq(l, r) => if neg {
-                Self::from_neg(Atom::Equality(*l, *r))
+                Self::from_neg(Atom::Equality(l.clone(), r.clone()))
             } else {
-                Self::from_pos(Atom::Equality(*l, *r))
+                Self::from_pos(Atom::Equality(l.clone(), r.clone()))
             },
             True => if neg {
                 Self::from_neg(Atom::Tautology)
@@ -135,7 +137,7 @@ impl Clause {
     /// The method will panic if the expression is not a clause.
     fn from_clause(e: &Expr) -> Clause {
         match e {
-            Or(l, r) => Self::from_union(&Self::from_clause(l), &Self::from_clause(r)).cleanup(),
+            Or(l, r) => Self::from_union(&Self::from_clause(l), &Self::from_clause(r)),
             e => Self::from_atom(e, false)
         }
     }
@@ -147,10 +149,10 @@ impl Clause {
             And(l, r) => union_b(Self::from_cnf(l), Self::from_cnf(r)),
             e => {
                 let clause = Self::from_clause(e);
-                if !clause.is_empty() {
+                if !clause.is_tautology() {
                     BTreeSet::from([clause])
                 } else {
-                    // If the clause is empty, it is a tautology in this case, so it does not contribute
+                    // If the clause is a tautology, it does not contribute
                     // to the CNF in any way that makes sense
                     BTreeSet::from([])
                 }
@@ -166,6 +168,12 @@ impl Clause {
             pos: union_b(l.pos.clone(), r.pos.clone()),
             neg: union_b(l.neg.clone(), r.neg.clone())
         }
+    }
+
+    /// Checks if the clause is a tautology. The positive and negative sets are not disjunct if the clause is a
+    /// tautology.
+    pub fn is_tautology(&self) -> bool {
+        self.pos.intersection(&self.neg).next() != None
     }
 
     /// Cleans up this clause. That is, it removes all tautologies like `P | !P` from the clause.
@@ -206,7 +214,7 @@ impl Clause {
     }
     
     /// Substitutes all occurences of the symbol `from` with the symbol `to` in this clause.
-    pub fn substitute(self, from: u64, to: u64) -> Self {
+    pub fn substitute(self, from: Name, to: Name) -> Self {
         Self {
             pos: self.pos.into_iter().map(|t| t.substitute(from, to)).collect(),
             neg: self.neg.into_iter().map(|t| t.substitute(from, to)).collect(),
@@ -237,6 +245,12 @@ impl Clause {
     }
 }
 
+impl Unifiable for Clause {
+    fn apply(self, unifier: &Unifier) -> Self {
+        Self { pos: self.pos.apply(unifier), neg: self.neg.apply(unifier) }
+    }
+}
+
 
 
 
@@ -251,16 +265,38 @@ fn sub_name(n: u64, from: u64, to: u64) -> u64 {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum Atom {
-    Predicate(Name, Vec<Name>),
-    Equality(Name, Name),
+    Predicate(Name, Vec<Term>),
+    Equality(Term, Term),
     Tautology
 }
 
 impl Atom {
+    pub fn mgu(&self, other: &Atom) -> Option<Unifier> {
+        match (self, other) {
+            (Atom::Predicate(ln, la), Atom::Predicate(rn, ra)) => {
+                if ln == rn {
+                    unify(la, ra)
+                } else {
+                    None
+                }
+            }
+
+            (Atom::Equality(ll, lr), Atom::Equality(rl, rr)) => {
+                unify(&vec![ll.clone(), lr.clone()], &vec![rl.clone(), rr.clone()])
+            }
+
+            (Atom::Tautology, Atom::Tautology) => {
+                Some(Unifier::new())
+            }
+
+            _ => None
+        }
+    }
+
     pub fn substitute(self, from: Name, to: Name) -> Self {
         match self {
-            Atom::Predicate(n, v) => Atom::Predicate(n, v.into_iter().map(|n| sub_name(n, from, to)).collect()),
-            Atom::Equality(l, r) => Atom::Equality(sub_name(l, from, to), sub_name(r, from, to)),
+            Atom::Predicate(n, v) => Atom::Predicate(n, v.into_iter().map(|n| n.substitute(from, to)).collect()),
+            Atom::Equality(l, r) => Atom::Equality(l.substitute(from, to), r.substitute(from, to)),
             Atom::Tautology => Atom::Tautology,
         }
     }
@@ -282,6 +318,11 @@ impl Atom {
             }
         }
 
+        fn write_term(str: &mut String, name_table: &BTreeMap<Name, String>, term: &Term) {
+            let s_term = format!("{}", term.named(name_table));
+            str.push_str(&s_term);
+        }
+
         match self {
             Atom::Predicate(n, v) => {
                 if neg {
@@ -300,45 +341,71 @@ impl Atom {
                             str.push_str(", ");
                         }
 
-                        write_name(str, name_table, *vn);
+                        write_term(str, name_table, vn);
                     }
                     str.push(')');
                 }
             },
             Atom::Equality(l, r) => {
-                write_name(str, name_table, *l);
+                write_term(str, name_table, l);
                 if neg {
                     str.push_str(" != ");
                 } else {
                     str.push_str(" == ");
                 }
-                write_name(str, name_table, *r);
+                write_term(str, name_table, r);
             },
             Atom::Tautology => str.push('*'),
         }
     }
 }
 
+impl Unifiable for Atom {
+    fn apply(self, unifier: &Unifier) -> Self {
+        match self {
+            Atom::Predicate(n, v) => Atom::Predicate(n, v.apply(unifier)),
+            Atom::Equality(l, r) => Atom::Equality(l.apply(unifier), r.apply(unifier)),
+            Atom::Tautology => Atom::Tautology
+        }
+    }
+}
+
 impl Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        NamedDisplay::fmt_raw(&self, f)
+    }
+}
+
+impl Debug for Atom {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        NamedDisplay::fmt_raw(&self, f)
+    }
+}
+
+impl NamedDisplay for Atom {
+    fn named_fmt(&self, f: &mut crate::fmto::NamedFormatter) -> std::fmt::Result {
         match self {
             // Predicate: P(a, b, ...)
             Atom::Predicate(n, v) => {
-                write!(f, "{n}(")?;
+                f.write_name(*n)?;
+                f.write_char('(')?;
+
                 let mut first = true;
                 for e in v {
                     if first {
                         first = false;
                     } else {
-                        write!(f, ", ")?;
+                        f.write_str(", ")?;
                     }
 
-                    write!(f, "{e}")?;
+                    e.named_fmt(f)?;
                 }
-                write!(f, ")")?;
+                f.write_char(')')?;
             },
             Atom::Equality(l, r) => {
-                write!(f, "{l} == {r}")?;
+                l.named_fmt(f)?;
+                f.write_str(" == ")?;
+                r.named_fmt(f)?;
             },
             Atom::Tautology => {
                 write!(f, "*")?;
@@ -346,11 +413,5 @@ impl Display for Atom {
         }
 
         Ok(())
-    }
-}
-
-impl Debug for Atom {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self, f)
     }
 }

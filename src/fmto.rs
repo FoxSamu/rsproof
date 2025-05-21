@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
-use std::fmt::{Formatter, Write, Result, Arguments};
+use std::fmt::{Arguments, Display, Formatter, Result, Write};
 use std::ops::Deref;
 
-use crate::expr::Name;
+use crate::expro::Name;
 
 /// A formatter that supports the resolution of numeric names. It is used to print expressions that internally use
 /// numeric names with their original names, given a table that maps numeric names to strings.
@@ -77,6 +77,10 @@ pub trait NamedDisplay {
 
         self.named_fmt(&mut nf)
     }
+
+    fn named<'l>(&'l self, names: &'l BTreeMap<Name, String>) -> Named<'l, Self> where Self : Sized {
+        Named { unnamed: self, names: names }
+    }
 }
 
 // This here implements NamedDisplay on any sort of reference to a NamedDisplay, allowing us to pass
@@ -85,5 +89,17 @@ pub trait NamedDisplay {
 impl<D, N> NamedDisplay for D where D : Deref<Target = N>, N : NamedDisplay {
     fn named_fmt(&self, f: &mut NamedFormatter) -> Result {
         self.deref().named_fmt(f)
+    }
+}
+
+
+pub struct Named<'l, T> where T : NamedDisplay, T : Sized {
+    unnamed: &'l T,
+    names: &'l BTreeMap<Name, String>
+}
+
+impl<'l, T> Display for Named<'l, T> where T : NamedDisplay {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        self.unnamed.fmt_named(f, self.names)
     }
 }

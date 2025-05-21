@@ -1,5 +1,8 @@
-all a, b, c: (c != 0 -> (a + b) % c = (a % c + b % c) % c),
-all a, c: (c != 0 -> (a % c) % c = a % c),
-all a, b: (a * b = a * (b - 1) + a)
+all a, b, c: (c != 0 -> (a + b) % c == (a % c + b % c) % c),
+all a, c: (c != 0 -> (a * c) % c == a),
+all a, b: (a * b == b * a),
+all a, b: (a + b == b + a),
+all a, b, c: (a * (b + c) == a * b + a * c),
+all a, c: (c != 0 -> a == (a / c) * c + a % c)
 |-
 all a, b, c: (c != 0 -> (a * b) % c = ((a % c) * (b % c)) % c)

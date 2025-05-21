@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::expr::{Name, Term};
-use crate::expr::Term::*;
+use crate::expro::{Name, Term};
+use crate::expro::Term::*;
 
 pub type Unifier = BTreeMap<Name, Term>;
 
@@ -124,30 +124,29 @@ impl Unification {
     }
 }
 
-pub fn unify(left: Vec<Term>, right: Vec<Term>) -> Option<Unifier> {
+pub fn unify(left: &Vec<Term>, right: &Vec<Term>) -> Option<Unifier> {
     if left.len() != right.len() {
         return None;
     }
 
-    let set = left.into_iter().zip(right.into_iter()).collect();
+    let set = left.clone().into_iter().zip(right.clone().into_iter()).collect();
     let mut unify = Unification::new(set);
 
     unify.unify()
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::expr::Term;
-    use crate::expr::Term::*;
+pub trait Unifiable {
+    fn apply(self, unifier: &Unifier) -> Self;
+}
 
-    use super::unify;
+impl<U> Unifiable for Vec<U> where U : Unifiable {
+    fn apply(self, unifier: &Unifier) -> Self {
+        self.into_iter().map(|e| e.apply(unifier)).collect()
+    }
+}
 
-    #[test]
-    fn test() {
-        let a = Func(0, vec![Func(1, vec![Var(2)]), Var(2)]);
-        let b = Func(0, vec![Var(3), Const(4)]);
-
-        let unify = unify(vec![a], vec![b]);
-        dbg!(unify);
+impl<U> Unifiable for BTreeSet<U> where U : Unifiable, U : Ord {
+    fn apply(self, unifier: &Unifier) -> Self {
+        self.into_iter().map(|e| e.apply(unifier)).collect()
     }
 }
