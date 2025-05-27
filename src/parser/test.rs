@@ -87,4 +87,6 @@ fn logic() {
     test_bexpr("no x, y, z: x+y == z <-> !(x+y == z)");
 
     test_bexpr("!exists x: x != x");
+
+    test_bexpr(":x == :x");
 }

@@ -2,24 +2,33 @@ use std::str::Chars;
 
 
 /// A parseable input.
-pub trait Input<I> where I : Iterator<Item = char> {
-    fn char_stream(self) -> I;
+pub trait Input {
+    type Iter : Iterator<Item = char>;
+
+    fn char_stream(self) -> Self::Iter;
 }
 
-impl<'a, I> Input<I> for I where I : Iterator<Item = char> {
-    fn char_stream(self) -> I {
-        self
-    }
-}
 
-impl<'a> Input<Chars<'a>> for &'a str {
-    fn char_stream(self) -> Chars<'a> {
+impl<'a> Input for &'a str {
+    type Iter = Chars<'a>;
+
+    fn char_stream(self) -> Self::Iter {
         self.chars()
     }
 }
 
-impl<'a> Input<Chars<'a>> for &'a String {
-    fn char_stream(self) -> Chars<'a> {
+impl<'a> Input for &'a String {
+    type Iter = Chars<'a>;
+
+    fn char_stream(self) -> Self::Iter {
         self.chars()
+    }
+}
+
+impl<'a> Input for String {
+    type Iter = <Vec<char> as IntoIterator>::IntoIter;
+
+    fn char_stream(self) -> Self::Iter {
+        self.chars().collect::<Vec<_>>().into_iter()
     }
 }

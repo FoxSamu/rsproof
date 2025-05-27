@@ -56,6 +56,9 @@ pub enum TKind {
 
     // Equality
 
+    /// `===`
+    Equiv,
+
     /// `==`
     Eq,
 

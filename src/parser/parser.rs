@@ -171,12 +171,13 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     /// Reads a base expression: 
     /// ```
     /// base_exp
-    ///   = unary_op un_exp
+    ///   = unary_op unary_exp
     ///   | '(' exp ')'
     ///   | 'True'
     ///   | 'False'
     ///   | Num
     ///   | call
+    ///   | ':' Ident
     /// ```
     pub fn base_exp(&mut self) -> ParseResult<ExpNode> {
         let from = self.pos();
@@ -223,6 +224,15 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
 
         if let Ok(call) = self.call() {
             return Ok(call)
+        }
+
+        if let Ok(_) = self.lit(TKind::Colon) {
+            let ident = Self::expect(self.ident(), "ident")?;
+
+            return Ok(ExpNode { 
+                from, to: self.pos(),
+                tree: ExpTree::Bound(ident)
+            });
         }
 
         self.absent()
@@ -506,6 +516,23 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
         Ok(StmtNode {
             from, to: self.pos(),
             premises, conclusions
+        })
+    }
+
+    /// Reads a unifiable expression
+    /// ```
+    /// unifiable = exp '===' exp
+    /// ```
+    pub fn unifiable(&mut self) -> ParseResult<UnifiableNode> {
+        let from = self.pos();
+
+        let left = self.exp()?;
+        Self::expect(self.lit(TKind::Equiv), "Equiv")?;
+        let right = Self::expect(self.exp(), "exp")?;
+
+        Ok(UnifiableNode {
+            from, to: self.pos(),
+            left, right
         })
     }
 

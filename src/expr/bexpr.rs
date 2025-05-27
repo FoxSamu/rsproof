@@ -163,6 +163,30 @@ impl Unifiable for BExpr {
             BExpr::Not(rhs) => BExpr::Not(rhs.unify(unifier))
         }
     }
+    
+    fn can_resolve_mgu(a: &Self, b: &Self) -> bool {
+        match (a, b) {
+            (BExpr::Pred(p, ps), BExpr::Pred(q, qs)) => p == q && Vec::can_resolve_mgu(ps, qs),
+
+            (BExpr::True, BExpr::True) => true,
+            (BExpr::False, BExpr::False) => true,
+
+            // We cannot find MGUs between boolean operators
+            _ => false
+        }
+    }
+    
+    fn mgu_arguments(&self) -> Option<Vec<AExpr>> {
+        match self {
+            BExpr::Pred(_, args) => Some(args.clone()),
+
+            BExpr::True => Some(vec![]),
+            BExpr::False => Some(vec![]),
+
+            // We cannot find MGUs between boolean operators
+            _ => None
+        }
+    }
 }
 
 impl DisplayNamed for BExpr {

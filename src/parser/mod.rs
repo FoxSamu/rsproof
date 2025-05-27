@@ -3,6 +3,7 @@
 #![allow(dead_code, unused)]
 
 use crate::expr::*;
+use crate::uni::Unifiable;
 
 pub use input::*;
 pub use output::*;
@@ -29,16 +30,21 @@ mod test;
 
 
 /// Parse a statement
-pub fn parse_stmt<S, I>(input: S) -> Result<Output<Stmt>, Error> where S : Input<I>, I : Iterator<Item = char> {
+pub fn parse_stmt<S>(input: S) -> Result<Output<Stmt>, Error> where S : Input {
     Parser::new(input.char_stream()).parse(|p, nc| p.stmt()?.as_stmt(nc), "stmt")
 }
 
+/// Parse a unifiable
+pub fn parse_unifiable<S>(input: S) -> Result<Output<(BExpr, BExpr)>, Error> where S : Input {
+    Parser::new(input.char_stream()).parse(|p, nc| p.unifiable()?.as_unifiable(nc), "unifiable")
+}
+
 /// Parse an arithmetic expression
-pub fn parse_aexpr<S, I>(input: S) -> Result<Output<AExpr>, Error> where S : Input<I>, I : Iterator<Item = char> {
+pub fn parse_aexpr<S>(input: S) -> Result<Output<AExpr>, Error> where S : Input {
     Parser::new(input.char_stream()).parse(|p, nc| p.exp()?.as_aexpr(nc), "exp")
 }
 
 /// Parse a boolean expression
-pub fn parse_bexpr<S, I>(input: S) -> Result<Output<BExpr>, Error> where S : Input<I>, I : Iterator<Item = char> {
+pub fn parse_bexpr<I>(input: I) -> Result<Output<BExpr>, Error> where I : Input {
     Parser::new(input.char_stream()).parse(|p, nc| p.exp()?.as_bexpr(nc), "exp")
 }

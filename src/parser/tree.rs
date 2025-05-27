@@ -1,4 +1,5 @@
 use crate::expr::{AExpr, BExpr, Stmt};
+use crate::uni::Unifiable;
 
 use super::namer::NameContext;
 use super::result::ParseResult;
@@ -89,6 +90,7 @@ impl ExpNode {
             // ExpTree::Num(val) => AExpr::num(Self::parse_nr(&val, range)?),
 
             ExpTree::Ident(name) => nc.resolve_bound(&name).map(|it| AExpr::bound(it)).unwrap_or_else(|| AExpr::unbound(nc.resolve_static(name))),
+            ExpTree::Bound(name) => AExpr::bound(nc.resolve_static(name)),
 
             ExpTree::Fun(name, args) => AExpr::fun(nc.resolve_static(name), Self::as_aexprs(args, nc)?),
 
@@ -214,6 +216,9 @@ pub enum ExpTree {
     /// A variable or symbol
     Ident(String),
 
+    /// A variable or symbol
+    Bound(String),
+
     /// The `True` boolean literal
     True,
 
@@ -266,5 +271,40 @@ impl StmtNode {
             ExpNode::as_bexprs(self.premises, nc)?,
             ExpNode::as_bexprs(self.conclusions, nc)?
         ))
+    }
+}
+
+/// A unifiable syntax node
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct UnifiableNode {
+    /// Starting coordinate of the node in the text
+    pub from: InputCoord,
+
+    /// Ending coordinate of the node in the text
+    pub to: InputCoord,
+
+    /// The left hand side expression
+    pub left: ExpNode,
+
+    /// The right hand side expression
+    pub right: ExpNode
+}
+
+impl SynNode for UnifiableNode {
+    fn from(&self) -> InputCoord {
+        self.from
+    }
+
+    fn to(&self) -> InputCoord {
+        self.to
+    }
+}
+
+impl UnifiableNode {
+    /// Converts this node into a `(Unifiable, Unifiable)`
+    pub fn as_unifiable(self, nc: &mut NameContext) -> ParseResult<(BExpr, BExpr)> {
+        let left = self.left.as_bexpr(nc)?;
+        let right = self.right.as_bexpr(nc)?;
+        Ok((left, right))
     }
 }

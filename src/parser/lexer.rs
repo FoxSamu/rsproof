@@ -236,7 +236,17 @@ impl<I> Lexer<I> where I : Iterator<Item = char> {
             // ==
             Some('=') => {
                 self.push_shift();
-                TKind::Eq
+
+                match self.la {
+                    // ===
+                    Some('=') => {
+                        self.push_shift();
+                        TKind::Equiv
+                    }
+
+                    // ==
+                    _ => TKind::Eq
+                }
             }
 
             // =

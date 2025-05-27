@@ -14,7 +14,7 @@ pub trait DisplayNamed: Names {
     }
 }
 
-pub fn write_comma_separated<'a, N>(f: &mut Formatter<'_>, names: &NameTable, elems: impl Iterator<Item = &'a N>) -> Result where N : DisplayNamed + 'a {
+pub fn write_comma_separated<'a, N>(f: &mut Formatter<'_>, names: &NameTable, elems: impl Iterator<Item = N>) -> Result where N : DisplayNamed + 'a {
     let mut comma = false;
 
     for elem in elems {
@@ -98,6 +98,14 @@ impl<T> DisplayNamed for HashSet<T> where T : DisplayNamed {
         write!(f, "{{")?;
         write_comma_separated(f, names, self.iter())?;
         write!(f, "}}")?;
+
+        Ok(())
+    }
+}
+
+impl<T0, T1> DisplayNamed for (T0, T1) where T0 : DisplayNamed, T1 : DisplayNamed {
+    fn fmt_named(&self, f: &mut Formatter<'_>, names: &NameTable) -> Result {
+        write!(f, "({}, {})", self.0.with_table(names), self.1.with_table(names))?;
 
         Ok(())
     }

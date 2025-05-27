@@ -361,6 +361,18 @@ impl Unifiable for Atom {
             Atom::Pred(name, args) => Atom::Pred(name, args.unify(unifier)),
         }
     }
+    
+    fn can_resolve_mgu(a: &Self, b: &Self) -> bool {
+        match (a, b) {
+            (Atom::Pred(p, ps), Atom::Pred(q, qs)) => p == q && Vec::can_resolve_mgu(ps, qs),
+        }
+    }
+    
+    fn mgu_arguments(&self) -> Option<Vec<AExpr>> {
+        match self {
+            Atom::Pred(_, args) => Some(args.clone())
+        }
+    }
 }
 
 impl Unifiable for Clause {
@@ -369,12 +381,30 @@ impl Unifiable for Clause {
         self.neg = self.neg.unify(unifier);
         self
     }
+    
+    // There exist no MGUs clauses
+    fn can_resolve_mgu(_: &Self, _: &Self) -> bool {
+        false
+    }
+    
+    fn mgu_arguments(&self) -> Option<Vec<AExpr>> {
+        None
+    }
 }
 
 impl Unifiable for NormalForm {
     fn unify(mut self, unifier: &crate::uni::Unifier) -> Self {
         self.clauses = self.clauses.unify(unifier);
         self
+    }
+    
+    // There exist no MGUs between normal forms
+    fn can_resolve_mgu(_: &Self, _: &Self) -> bool {
+        false
+    }
+    
+    fn mgu_arguments(&self) -> Option<Vec<AExpr>> {
+        None
     }
 }
 

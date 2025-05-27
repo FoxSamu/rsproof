@@ -31,7 +31,7 @@ impl Unification {
     }
 
     fn step(&mut self) -> StepResult {
-        let mut tf = BTreeSet::new();
+        let mut g = BTreeSet::new();
         let mut unifier = Unifier::new();
 
         let vars = self.eqs.iter().flat_map(|(l, r)| {
@@ -40,24 +40,20 @@ impl Unification {
             vars
         }).collect::<BTreeSet<_>>();
 
-        let mut transformed = false;
+        let mut _transformed = false;
 
         for e in self.eqs.clone().into_iter() {
             match e {
+                // Conflict
                 (Const(t), Const(u)) => {
                     if t != u {
                         return StepResult::Fail;
                     }
 
-                    transformed = true;
+                    _transformed = true;
                 },
-                
-                (l, Var(x)) => {
-                    tf.insert((Var(x), l));
 
-                    transformed = true;
-                },
-                
+                // Eliminate
                 (Var(x), r) => {
                     if let f @ Func(_, _) = &r {
                         if f.contains_var(&x) {
@@ -69,7 +65,15 @@ impl Unification {
                         unifier.insert(x, r);
                     }
                 },
-                
+
+                // Swap
+                (l, Var(x)) => { // <-- PROBLEM!
+                    g.insert((Var(x), l));
+
+                    _transformed = true;
+                },
+
+                // Decompose
                 (Func(x, mut xs), Func(y, mut ys)) => {
                     if x != y {
                         return StepResult::Fail;
@@ -80,28 +84,39 @@ impl Unification {
                     }
 
                     while let (Some(xa), Some(ya)) = (xs.pop(), ys.pop()) {
-                        tf.insert((xa, ya));
+                        g.insert((xa, ya));
                     }
 
-                    transformed = true;
+                    _transformed = true;
                 },
 
+                // No Op
                 e => {
-                    tf.insert(e);
+                    g.insert(e);
                 }
             }
+
         }
 
-        if tf.is_empty() {
-            return StepResult::Done(unifier);
+        unifier = dbg!(unifier);
+        g = dbg!(g);
+
+        if g.is_empty() {
+            let mut result = Unifier::new();
+
+            for (l, r) in &unifier {
+                result.insert(*l, Self::unify_term(r.clone(), &unifier));
+            }
+
+            return StepResult::Done(result);
         }
 
         if unifier.is_empty() {
-            self.eqs = tf;
+            self.eqs = g;
         } else {
             self.eqs.clear();
 
-            for (l, r) in tf {
+            for (l, r) in g {
                 self.eqs.insert((Self::unify_term(l, &unifier), Self::unify_term(r, &unifier)));
             }
 
