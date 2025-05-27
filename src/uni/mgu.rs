@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::mem::{replace, take};
+use std::mem::take;
 
 use crate::expr::{AExpr, Name, Vars};
 use crate::expr::AExpr::*;
@@ -51,24 +51,17 @@ impl MguFinder {
         let mut u = take(&mut self.u);
 
 
-        // Find all the variables that are mentioned in `G` or `U`.
-
-        // TODO is this still used?
-        let mut _vars = BTreeSet::new();
-
-        for (l, r) in &self.g {
-            _vars.append(&mut l.vars());
-            _vars.append(&mut r.vars());
-        }
-
-        for (l, r) in &self.u {
-            _vars.insert(*l);
-            _vars.append(&mut r.vars());
-        }
-
-
         // Transform each equality in `G`.
-        for e in take(&mut g).into_iter() {
+        for (l, r) in take(&mut g).into_iter() {
+            // Apply current unifier to term immediately. This fixes a bug where
+            // `f(:x, :y) = f(:y, :x)` would create the unifier `{x = :y, y = :x}`,
+            // which is invalid and causes a panic upon construction of the `Unifier`
+            // object.
+            //
+            // Note that it is still crucial that `G` gets unified after this loop. Some
+            // updates in `U` may not be reflected in `G` yet.
+            let e = (Self::apply_unifier(l, &u), Self::apply_unifier(r, &u));
+
             match e {
                 // ELIMINATE
                 (Var(x), r) => {
@@ -124,7 +117,7 @@ impl MguFinder {
             }
         }
 
-        // Update current `G` and `U`.
+        // Unify and update current `G` and `U`.
 
         if u.is_empty() {
             // If there is no unifier, there is no need to clone stuff around.
@@ -184,6 +177,7 @@ pub fn mgu(left: Vec<AExpr>, right: Vec<AExpr>) -> Option<Unifier> {
     let l = left.into_iter();
     let r = right.into_iter();
     let set = l.zip(r).collect();
+
 
     // Find the unifier
     MguFinder::new(set)              // Create new MguFinder

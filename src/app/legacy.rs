@@ -11,10 +11,9 @@ use crate::res::resolution;
 use crate::unify::unify;
 
 pub fn main(verbose: bool) -> ExitCode {
-    // f(x, g(z), z) = f(g(y), y, a)
+    // f(x, y) = f(y, x)
 
-    // x |-> g(z)
-    // y |-> z
+    // x |-> y
 
 
     // f = 0, g = 1, X = 8, Y = 9, Z = 10, a = 3
@@ -29,10 +28,10 @@ pub fn main(verbose: bool) -> ExitCode {
     // x -> g(g(a))
     // y -> g(a)
     // z -> a
-    let left = Term::Func(0, vec![x.clone(), gz.clone(), z.clone()]);
-    let right = Term::Func(0, vec![gy.clone(), y.clone(), a.clone()]);
+    let left = Term::Func(0, vec![x.clone(), y.clone()]);
+    let right = Term::Func(0, vec![y.clone(), x.clone()]);
 
-    let uni = unify(&vec![x.clone()], &vec![Term::Func(0, vec![x.clone()])]);
+    let uni = unify(&vec![left], &vec![right]);
     dbg!(uni);
 
     // Parse stdin

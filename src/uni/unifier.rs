@@ -401,7 +401,7 @@ impl Unifiable for () {
         ()
     }
 
-    fn can_resolve_mgu(a: &Self, b: &Self) -> bool {
+    fn can_resolve_mgu(_: &Self, _: &Self) -> bool {
         true
     }
 

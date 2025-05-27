@@ -42,7 +42,9 @@ impl Unification {
 
         let mut _transformed = false;
 
-        for e in self.eqs.clone().into_iter() {
+        for (l, r) in self.eqs.clone().into_iter() {
+            let e = (Self::unify_term(l, &unifier), Self::unify_term(r, &unifier));
+            
             match e {
                 // Conflict
                 (Const(t), Const(u)) => {
