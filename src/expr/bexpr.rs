@@ -49,6 +49,46 @@ pub enum BExpr {
 
 
 impl BExpr {
+    pub fn bool(val: bool) -> BExpr {
+        match val {
+            true => BExpr::True,
+            false => BExpr::False
+        }
+    }
+
+    pub fn sym(name: Name) -> BExpr {
+        BExpr::Pred(name, vec![])
+    }
+
+    pub fn pred(name: Name, args: Vec<AExpr>) -> BExpr {
+        BExpr::Pred(name, args)
+    }
+
+    pub fn and(lhs: BExpr, rhs: BExpr) -> BExpr {
+        lhs & rhs
+    }
+
+    pub fn or(lhs: BExpr, rhs: BExpr) -> BExpr {
+        lhs | rhs
+    }
+
+    pub fn not(rhs: BExpr) -> BExpr {
+        !rhs
+    }
+
+    pub fn im(lhs: BExpr, rhs: BExpr) -> BExpr {
+        !lhs | rhs
+    }
+
+    pub fn revim(lhs: BExpr, rhs: BExpr) -> BExpr {
+        lhs | !rhs
+    }
+
+    pub fn equiv(lhs: BExpr, rhs: BExpr) -> BExpr {
+        let lhs2 = lhs.clone();
+        let rhs2 = rhs.clone();
+        (lhs | !rhs) & (!lhs2 | rhs2)
+    }
 }
 
 impl BitAnd for BExpr {

@@ -23,6 +23,21 @@ pub enum AExpr {
     Fun(Name, Vec<AExpr>)
 }
 
+
+impl AExpr {
+    pub fn unbound(name: Name) -> AExpr {
+        AExpr::Fun(name, vec![])
+    }
+    
+    pub fn bound(name: Name) -> AExpr {
+        AExpr::Var(name)
+    }
+    
+    pub fn fun(name: Name, args: Vec<AExpr>) -> AExpr {
+        AExpr::Fun(name, args)
+    }
+}
+
 impl Names for AExpr {
     fn names<A>(&self) -> A where A : FromIterator<Name> {
         match self {
