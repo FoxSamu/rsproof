@@ -23,7 +23,7 @@ impl InputSource {
 pub enum RunMode {
     Legacy(bool),
     Prove(InputSource),
-    Unify(InputSource),
+    Mgu(InputSource),
     Help,
     Error(String)
 }
@@ -154,11 +154,11 @@ impl OptsParser {
                     self.input_source().with_error(format!("Usage: `{} prove (-i | -f <filename> | [-r] <raw_input>)`", self.base_command))?
                 ))
             },
-            Some("unify") => {
+            Some("mgu") => {
                 self.shift();
 
-                Ok(RunMode::Unify(
-                    self.input_source().with_error(format!("Usage: `{} unify (-i | -f <filename> | [-r] <raw_input>)`", self.base_command))?
+                Ok(RunMode::Mgu(
+                    self.input_source().with_error(format!("Usage: `{} mgu (-i | -f <filename> | [-r] <raw_input>)`", self.base_command))?
                 ))
             },
             Some("help") => {

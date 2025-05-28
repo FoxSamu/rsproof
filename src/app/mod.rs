@@ -1,19 +1,19 @@
-use std::env;
 use std::process::ExitCode;
 
 use options::Options;
 
 mod options;
 mod legacy;
-mod unify;
+mod mgu;
+mod prove;
 
 pub fn main() -> ExitCode {
     let opts = Options::parse();
     
     match opts.run_mode {
         options::RunMode::Legacy(verbose) => legacy::main(verbose),
-        options::RunMode::Prove(input) => todo!(),
-        options::RunMode::Unify(input) => unify::main(input),
+        options::RunMode::Prove(input) => prove::main(input),
+        options::RunMode::Mgu(input) => mgu::main(input),
 
         options::RunMode::Help => print_help(opts.base_command),
         options::RunMode::Error(err) => print_error(opts.base_command, err),
@@ -46,14 +46,18 @@ fn print_help(base: String) -> ExitCode {
         read as \"entails\", so `P |- Q` reads \"P entails Q\".
         -i               Read input from stdin.
         -f <filename>    Read input from given file.
-        -r <raw_input>   Use the given argument as raw input.");
+        -r <raw_input>   Use the given argument as raw input. You may omit the `-r`.");
 
     println!("
-    {base} unify (-i | -f <filename> | [-r] <raw_input>)
-        Unify a set of equalities.
+    {base} mgu (-i | -f <filename> | [-r] <raw_input>)
+        Find a most general unifier of an equivalence. The equivalence is an
+        input of the form `P === Q`, in which `P` and `Q` are boolean 
+        expressions. `P` and `Q` can use boolean connectives, though an MGU
+        never exists for such expressions. Use the `:x` syntax to denote a
+        variable named `x`, as the syntax `x` will denote a constant.
         -i               Read input from stdin.
         -f <filename>    Read input from given file.
-        -r <raw_input>   Use the given argument as raw input.");
+        -r <raw_input>   Use the given argument as raw input. You may omit the `-r`.");
 
     ExitCode::SUCCESS
 }
