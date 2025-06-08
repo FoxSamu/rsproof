@@ -1,15 +1,32 @@
 use std::collections::BTreeSet;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use crate::expr::{AExpr, BExpr, Name, Names, Vars};
 use crate::fmt::{write_comma_separated, DisplayNamed, NameTable};
 use crate::uni::Unifiable;
 
+pub use index::PredicateIndex;
+
 pub type Atoms = BTreeSet<Atom>;
 pub type Clauses = BTreeSet<Clause>;
 
+
+/// Module for converting expressions to equivalent CNF/DNF.
+#[allow(dead_code)]
+mod equiv_nf;
+
+/// Module for converting expressions to Tseitin DNF/CNF (an equisatisfiable but inequivalent DNF/CNF).
+#[allow(dead_code)]
+mod tseitin_nf;
+
+/// Module for atom indexing.
+mod index;
+
+#[cfg(test)]
+mod test;
+
 /// An atomic expression. Atoms are the leaves of a [BExpr] tree.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub enum Atom {
     Pred(Name, Vec<AExpr>)
 }
@@ -21,15 +38,16 @@ pub enum Atom {
 /// called the *positive set* and the *negative set*.
 /// 
 /// For example, the disjunctive clause `P | !Q | R` is represented as `pos: {P, R}, neg: {Q}`.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct Clause {
-    pos: Atoms,
-    neg: Atoms
+    pos: PredicateIndex,
+    neg: PredicateIndex
 }
 
 /// Normal Form: A conjunction or disjunction of clauses. Depending on context, it can represent
 /// either Conjunctive Normal Form (CNF) or Disjunctive Normal Form (DNF).
 /// This struct simply represents a set of [Clause]s, therefore it can act both as CNF and DNF.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct NormalForm {
     clauses: Clauses
 }
@@ -39,8 +57,8 @@ impl Clause {
     /// Constructs a new empty clause.
     pub fn new() -> Self {
         Self {
-            pos: BTreeSet::new(),
-            neg: BTreeSet::new()
+            pos: PredicateIndex::new(),
+            neg: PredicateIndex::new()
         }
     }
 
@@ -64,8 +82,8 @@ impl Clause {
     /// other representing the negative set.
     pub fn from_slices<const P: usize, const N: usize>(pos: [Atom; P], neg: [Atom; N]) -> Self {
         Self {
-            pos: BTreeSet::from(pos),
-            neg: BTreeSet::from(neg)
+            pos: PredicateIndex::from(pos),
+            neg: PredicateIndex::from(neg)
         }
     }
 
@@ -82,32 +100,32 @@ impl Clause {
     }
 
     /// Borrows the positive set from this clause.
-    pub fn pos(&self) -> &Atoms {
+    pub fn pos(&self) -> &PredicateIndex {
         &self.pos
     }
 
     /// Borrows the negative set from this clause.
-    pub fn neg(&self) -> &Atoms {
+    pub fn neg(&self) -> &PredicateIndex {
         &self.neg
     }
 
     /// Borrows the positive and negative sets from this clause.
-    pub fn atoms(&self) -> (&Atoms, &Atoms) {
+    pub fn atoms(&self) -> (&PredicateIndex, &PredicateIndex) {
         (&self.pos, &self.neg)
     }
 
     /// Moves out the positive set from this clause.
-    pub fn into_pos(self) -> Atoms {
+    pub fn into_pos(self) -> PredicateIndex {
         self.pos
     }
 
     /// Moves out the negative set from this clause.
-    pub fn into_neg(self) -> Atoms {
+    pub fn into_neg(self) -> PredicateIndex {
         self.neg
     }
 
     /// Moves out the positive and negative sets from this clause.
-    pub fn into_atoms(self) -> (Atoms, Atoms) {
+    pub fn into_atoms(self) -> (PredicateIndex, PredicateIndex) {
         (self.pos, self.neg)
     }
 
@@ -116,8 +134,8 @@ impl Clause {
     /// union of the two negative sets of this and the given clause.
     pub fn concat(self, other: Self) -> Self {
         Self { 
-            pos: union(self.pos, other.pos),
-            neg: union(self.neg, other.neg)
+            pos: PredicateIndex::union(self.pos, other.pos),
+            neg: PredicateIndex::union(self.neg, other.neg)
         }
     }
 
@@ -137,8 +155,6 @@ impl Clause {
     /// clause (DNF) this means the clause is contradiction.
     pub fn is_disjoint(&self) -> bool {
         // A tautology is a clause where positive and negative atoms are not disjoint
-
-        // TODO unify here, we need to discover cases like `all x: P(x) | !P(a)`
         self.pos.is_disjoint(&self.neg)
     }
 
@@ -427,17 +443,23 @@ impl DisplayNamed for Clause {
         write!(f, "(")?;
         let mut comma = false;
 
-        for elem in &self.pos {
+        for (name, args) in self.pos.iter_preds() {
             if comma { write!(f, ", ")?; } else { comma = true; }
 
-            elem.fmt_named(f, names)?;
+            name.fmt_named(f, names)?;
+            write!(f, "(")?;
+            write_comma_separated(f, names, args.iter())?;
+            write!(f, ")")?;
         };
 
-        for elem in &self.neg {
+        for (name, args) in self.neg.iter_preds() {
             if comma { write!(f, ", ")?; } else { comma = true; }
 
             write!(f, "!")?;
-            elem.fmt_named(f, names)?;
+            name.fmt_named(f, names)?;
+            write!(f, "(")?;
+            write_comma_separated(f, names, args.iter())?;
+            write!(f, ")")?;
         };
 
         write!(f, ")")?;
@@ -454,30 +476,36 @@ impl DisplayNamed for NormalForm {
 
 impl Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.with_table(&NameTable::new()).fmt(f)
+        Display::fmt(&self.with_table(&NameTable::new()), f)
     }
 }
 
 impl Display for Clause {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.with_table(&NameTable::new()).fmt(f)
+        Display::fmt(&self.with_table(&NameTable::new()), f)
     }
 }
 
 impl Display for NormalForm {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.with_table(&NameTable::new()).fmt(f)
+        Display::fmt(&self.with_table(&NameTable::new()), f)
     }
 }
 
+impl Debug for Atom {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.with_table(&NameTable::new()), f)
+    }
+}
 
+impl Debug for Clause {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.with_table(&NameTable::new()), f)
+    }
+}
 
-
-
-/// Module for converting expressions to equivalent CNF/DNF.
-#[allow(dead_code)]
-mod equiv_nf;
-
-/// Module for converting expressions to Tseitin DNF/CNF (an equisatisfiable but inequivalent DNF/CNF).
-#[allow(dead_code)]
-mod tseitin_nf;
+impl Debug for NormalForm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.with_table(&NameTable::new()), f)
+    }
+}

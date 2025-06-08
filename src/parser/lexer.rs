@@ -250,7 +250,7 @@ impl<I> Lexer<I> where I : Iterator<Item = char> {
             }
 
             // =
-            _ => TKind::Illegal
+            _ => TKind::Is
         };
 
         return (self.buf.clone(), kind);

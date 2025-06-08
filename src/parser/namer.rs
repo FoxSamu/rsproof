@@ -57,7 +57,7 @@ impl NameContext {
     }
 
     /// Resolves a global name, it will not bind it to any scope name.
-    pub fn resolve_static(&mut self, str: String) -> Name {
+    pub(super) fn resolve_static(&mut self, str: String) -> Name {
         if let Some(name) = self.unbound.get(&str) {
             return *name;
         }
@@ -71,7 +71,7 @@ impl NameContext {
     }
 
     /// Resolves a bound name, it try to bind it to a scope name, otherwise it will return [None].
-    pub fn resolve_bound(&mut self, str: &String) -> Option<Name> {
+    pub(super) fn resolve_bound(&mut self, str: &String) -> Option<Name> {
         if let Some(scope) = self.bound.last() {
             if let Some(name) = scope.get(str) {
                 return Some(*name);
@@ -82,7 +82,7 @@ impl NameContext {
     }
 
     /// Enter a new scope in which the given name is bound.
-    pub fn enter(&mut self, str: String) -> Name {
+    pub(super) fn enter(&mut self, str: String) -> Name {
         let name = self.new_name();
         self.save_bound_name(&str, name);
 
@@ -94,7 +94,7 @@ impl NameContext {
     }
 
     /// Leave a scope that was entered by [Self::enter]. Panics if no scope was ever entered.
-    pub fn leave(&mut self) {
+    pub(super) fn leave(&mut self) {
         self.bound.pop().expect("Cannot leave global scope");
     }
 }

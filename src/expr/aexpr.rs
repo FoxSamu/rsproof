@@ -1,5 +1,6 @@
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::fmt::{write_comma_separated, DisplayNamed, NameTable};
 use crate::uni::{Unifiable, Unifier};
@@ -35,6 +36,12 @@ impl AExpr {
     
     pub fn fun(name: Name, args: Vec<AExpr>) -> AExpr {
         AExpr::Fun(name, args)
+    }
+}
+
+impl Default for AExpr {
+    fn default() -> Self {
+        AExpr::Fun(Default::default(), Default::default())
     }
 }
 
@@ -118,6 +125,12 @@ impl<N> Vars for &N where N : Vars {
 }
 
 impl<N> Vars for Box<N> where N : Vars {
+    fn vars<A>(&self) -> A where A : FromIterator<Name> {
+        self.as_ref().vars()
+    }
+}
+
+impl<N> Vars for Rc<N> where N : Vars {
     fn vars<A>(&self) -> A where A : FromIterator<Name> {
         self.as_ref().vars()
     }

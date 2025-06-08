@@ -1,6 +1,15 @@
 [package]
 name = "rsproof"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
+
+
+[lib]
+name = "rsproof"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rsproof"
+path = "src/main.rs"

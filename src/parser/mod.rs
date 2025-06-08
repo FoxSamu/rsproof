@@ -3,12 +3,15 @@
 #![allow(dead_code, unused)]
 
 use crate::expr::*;
+use crate::fmt::NameTable;
+use crate::parser::result::ParseResult;
 use crate::uni::Unifiable;
 
 pub use input::*;
 pub use output::*;
 pub use error::*;
 pub use coord::*;
+pub use namer::*;
 
 use parser::Parser;
 
@@ -29,22 +32,106 @@ mod parser;
 mod test;
 
 
+
+pub struct ParseContext {
+    nc: NameContext,
+    nt: NameTable
+}
+
+impl ParseContext {
+    pub fn new() -> Self {
+        Self { nc: NameContext::new(), nt: NameTable::new() }
+    }
+
+    pub fn name_table(&self) -> &NameTable {
+        self.nc.rev_table()
+    }
+
+    fn parse<T, S, F>(&mut self, input: S, name: &str, func: F) -> Result<T, Error>
+    where
+    S : Input,
+    F : FnOnce(&mut Parser<S::Iter>, &mut NameContext) -> ParseResult<T> {
+        Parser::new(input.char_stream()).parse(
+            |p, nc| func(p, nc),
+            name,
+            &mut self.nc
+        )
+    }
+
+    fn with_output<T>(&self, result: T) -> Output<T> {
+        Output { result, name_table: self.name_table().clone() }
+    }
+
+
+    pub fn name<S>(&mut self, input: S)-> Result<Name, Error> where S : Input {
+        self.parse(input, "ident", |p, nc| {
+            let id = p.ident()?;
+            Ok(nc.resolve_static(id))
+        })
+    }
+
+    pub fn name_output<S>(&mut self, input: S)-> Result<Output<Name>, Error> where S : Input {
+        self.name(input).map(|it| self.with_output(it))
+    }
+
+
+    pub fn stmt<S>(&mut self, input: S)-> Result<Stmt, Error> where S : Input {
+        self.parse(input, "stmt", |p, nc| p.stmt()?.as_stmt(nc))
+    }
+
+    pub fn stmt_output<S>(&mut self, input: S)-> Result<Output<Stmt>, Error> where S : Input {
+        self.stmt(input).map(|it| self.with_output(it))
+    }
+
+
+    pub fn unifiable<S>(&mut self, input: S)-> Result<(Vec<AExpr>, Vec<AExpr>), Error> where S : Input {
+        self.parse(input, "unifiable", |p, nc| p.unifiable()?.as_unifiable(nc))
+    }
+
+    pub fn unifiable_output<S>(&mut self, input: S)-> Result<Output<(Vec<AExpr>, Vec<AExpr>)>, Error> where S : Input {
+        self.unifiable(input).map(|it| self.with_output(it))
+    }
+
+
+    pub fn aexpr<S>(&mut self, input: S)-> Result<AExpr, Error> where S : Input {
+        self.parse(input, "exp", |p, nc| p.exp()?.as_aexpr(nc))
+    }
+
+    pub fn aexpr_output<S>(&mut self, input: S)-> Result<Output<AExpr>, Error> where S : Input {
+        self.aexpr(input).map(|it| self.with_output(it))
+    }
+
+
+    pub fn bexpr<S>(&mut self, input: S)-> Result<BExpr, Error> where S : Input {
+        self.parse(input, "exp", |p, nc| p.exp()?.as_bexpr(nc))
+    }
+
+    pub fn bexpr_output<S>(&mut self, input: S)-> Result<Output<BExpr>, Error> where S : Input {
+        self.bexpr(input).map(|it| self.with_output(it))
+    }
+}
+
+
 /// Parse a statement
-pub fn parse_stmt<S>(input: S) -> Result<Output<Stmt>, Error> where S : Input {
-    Parser::new(input.char_stream()).parse(|p, nc| p.stmt()?.as_stmt(nc), "stmt")
+#[deprecated(note = "Use ParseContext")]
+pub fn parse_stmt<S>(input: S, nc: &mut NameContext) -> Result<Output<Stmt>, Error> where S : Input {
+    Parser::new(input.char_stream()).parse(|p, nc| p.stmt()?.as_stmt(nc).map(|result| Output { result, name_table: nc.rev_table().clone() }), "stmt", nc)
 }
 
 /// Parse a unifiable
-pub fn parse_unifiable<S>(input: S) -> Result<Output<(BExpr, BExpr)>, Error> where S : Input {
-    Parser::new(input.char_stream()).parse(|p, nc| p.unifiable()?.as_unifiable(nc), "unifiable")
+#[deprecated(note = "Use ParseContext")]
+pub fn parse_unifiable<S>(input: S, nc: &mut NameContext) -> Result<Output<(Vec<AExpr>, Vec<AExpr>)>, Error> where S : Input {
+    Parser::new(input.char_stream()).parse(|p, nc| p.unifiable()?.as_unifiable(nc).map(|result| Output { result, name_table: nc.rev_table().clone() }), "unifiable", nc)
 }
 
 /// Parse an arithmetic expression
-pub fn parse_aexpr<S>(input: S) -> Result<Output<AExpr>, Error> where S : Input {
-    Parser::new(input.char_stream()).parse(|p, nc| p.exp()?.as_aexpr(nc), "exp")
+#[deprecated(note = "Use ParseContext")]
+pub fn parse_aexpr<S>(input: S, nc: &mut NameContext) -> Result<Output<AExpr>, Error> where S : Input {
+    Parser::new(input.char_stream()).parse(|p, nc| p.exp()?.as_aexpr(nc).map(|result| Output { result, name_table: nc.rev_table().clone() }), "exp", nc)
 }
 
 /// Parse a boolean expression
-pub fn parse_bexpr<I>(input: I) -> Result<Output<BExpr>, Error> where I : Input {
-    Parser::new(input.char_stream()).parse(|p, nc| p.exp()?.as_bexpr(nc), "exp")
+#[deprecated(note = "Use ParseContext")]
+pub fn parse_bexpr<I>(input: I, nc: &mut NameContext) -> Result<Output<BExpr>, Error> where I : Input {
+    Parser::new(input.char_stream()).parse(|p, nc| p.exp()?.as_bexpr(nc).map(|result| Output { result, name_table: nc.rev_table().clone() }), "exp", nc)
 }

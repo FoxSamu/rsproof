@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::io::Read;
 
 use Token::*;
@@ -679,7 +679,7 @@ pub fn parse_string(str: &String) -> Result<(Expr, BTreeMap<u64, String>), Strin
 pub fn parse<R>(mut r: R) -> Result<(Expr, BTreeMap<u64, String>), String> where R : Read {
     let mut str = String::new();
 
-    r.read_to_string(&mut str).map_err(|_| String::from("IO Error"))?;
+    r.read_to_string(&mut str).map_err(|e| e.to_string())?;
 
     parse_string(&str)
 }

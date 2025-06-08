@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::expr::{AExpr, BExpr, Stmt};
 use crate::uni::Unifiable;
 
@@ -7,7 +9,7 @@ use super::token::Token;
 use super::coord::{InputCoord, InputRange};
 
 /// A syntax tree node
-pub trait SynNode {
+pub trait SynNode: PartialEq + Eq + Clone + Debug {
     /// Starting coordinate of the node in the text
     fn from(&self) -> InputCoord;
 
@@ -284,10 +286,10 @@ pub struct UnifiableNode {
     pub to: InputCoord,
 
     /// The left hand side expression
-    pub left: ExpNode,
+    pub left: Vec<ExpNode>,
 
     /// The right hand side expression
-    pub right: ExpNode
+    pub right: Vec<ExpNode>
 }
 
 impl SynNode for UnifiableNode {
@@ -302,9 +304,68 @@ impl SynNode for UnifiableNode {
 
 impl UnifiableNode {
     /// Converts this node into a `(Unifiable, Unifiable)`
-    pub fn as_unifiable(self, nc: &mut NameContext) -> ParseResult<(BExpr, BExpr)> {
-        let left = self.left.as_bexpr(nc)?;
-        let right = self.right.as_bexpr(nc)?;
+    pub fn as_unifiable(self, nc: &mut NameContext) -> ParseResult<(Vec<AExpr>, Vec<AExpr>)> {
+        let left = ExpNode::as_aexprs(self.left, nc)?;
+        let right = ExpNode::as_aexprs(self.right, nc)?;
         Ok((left, right))
+    }
+}
+
+
+
+/// A syntax node that is a vector of syntax nodes
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct VecNode<N> where N : SynNode {
+    /// Starting coordinate of the node in the text
+    pub from: InputCoord,
+
+    /// Ending coordinate of the node in the text
+    pub to: InputCoord,
+
+    /// Elements
+    pub elems: Vec<N>
+}
+
+impl<N> SynNode for VecNode<N> where N : SynNode {
+    fn from(&self) -> InputCoord {
+        self.from
+    }
+
+    fn to(&self) -> InputCoord {
+        self.to
+    }
+}
+
+impl VecNode<ExpNode> {
+    pub fn as_aexprs(self, nc: &mut NameContext) -> ParseResult<Vec<AExpr>> {
+        ExpNode::as_aexprs(self.elems, nc)
+    }
+
+    pub fn as_bexprs(self, nc: &mut NameContext) -> ParseResult<Vec<BExpr>> {
+        ExpNode::as_bexprs(self.elems, nc)
+    }
+}
+
+
+/// A syntax node that is a pair of syntax nodes
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct PairNode<N0, N1> where N0 : SynNode, N1 : SynNode {
+    /// Starting coordinate of the node in the text
+    pub from: InputCoord,
+
+    /// Ending coordinate of the node in the text
+    pub to: InputCoord,
+
+    /// Pair
+    pub pair: (N0, N1)
+}
+
+impl<N0, N1> SynNode for PairNode<N0, N1> where N0 : SynNode, N1 : SynNode {
+    fn from(&self) -> InputCoord {
+        self.from
+    }
+
+    fn to(&self) -> InputCoord {
+        self.to
     }
 }

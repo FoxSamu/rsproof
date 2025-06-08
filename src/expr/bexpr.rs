@@ -91,6 +91,12 @@ impl BExpr {
     }
 }
 
+impl Default for BExpr {
+    fn default() -> Self {
+        BExpr::False
+    }
+}
+
 impl BitAnd for BExpr {
     type Output = BExpr;
 

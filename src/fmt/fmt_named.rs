@@ -1,12 +1,13 @@
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::ops::Deref;
+use std::rc::Rc;
 
 use crate::expr::Names;
 
 use super::NameTable;
 
-pub trait DisplayNamed: Names {
+pub trait DisplayNamed {
     fn fmt_named(&self, f: &mut Formatter<'_>, names: &NameTable) -> Result;
 
     fn with_table<'elem, 'table>(&'elem self, table: &'table NameTable) -> WithTable<'elem, 'table, Self> where Self : Sized {
@@ -53,6 +54,12 @@ impl<T> DisplayNamed for &T where T : DisplayNamed {
 }
 
 impl<T> DisplayNamed for Box<T> where T : DisplayNamed {
+    fn fmt_named(&self, f: &mut Formatter<'_>, names: &NameTable) -> Result {
+        self.deref().fmt_named(f, names)
+    }
+}
+
+impl<T> DisplayNamed for Rc<T> where T : DisplayNamed {
     fn fmt_named(&self, f: &mut Formatter<'_>, names: &NameTable) -> Result {
         self.deref().fmt_named(f, names)
     }

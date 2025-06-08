@@ -138,7 +138,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a unary operator:
-    /// ```
+    /// ```txt
     /// unary_op = '!' | '-' | '+'
     /// ```
     pub fn unary_op(&mut self) -> ParseResult<UnOp> {
@@ -155,7 +155,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads an unary expression: 
-    /// ```
+    /// ```txt
     /// unary_exp
     ///   = q_exp
     ///   | base_exp
@@ -169,7 +169,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a base expression: 
-    /// ```
+    /// ```txt
     /// base_exp
     ///   = unary_op unary_exp
     ///   | '(' exp ')'
@@ -239,7 +239,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a comma separarted list of expressions
-    /// ```
+    /// ```txt
     /// args
     ///   = exp ',' args
     ///   | exp
@@ -260,7 +260,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a function call or identifier
-    /// ```
+    /// ```txt
     /// call
     ///   = Ident '(' args ')'
     ///   | Ident
@@ -287,7 +287,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a precedence-related binary operator.
-    /// ```
+    /// ```txt
     /// p_op(Mul) = mul_op
     /// p_op(Add) = add_op
     /// p_op(Eq)  = eq_op
@@ -309,7 +309,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a precedence binary expression.
-    /// ```
+    /// ```txt
     /// p_exp(p) = p_exp(p.upper) (p_op(p) p_exp(p.upper))*
     /// ```
     pub fn p_exp(&mut self, p: Precedence) -> ParseResult<ExpNode> {
@@ -334,7 +334,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a multiplication operator
-    /// ```
+    /// ```txt
     /// mul_op = '*' | '/' | '%'
     /// ```
     pub fn mul_op(&mut self) -> ParseResult<BinOp> {
@@ -351,7 +351,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads an addition operator
-    /// ```
+    /// ```txt
     /// add_op = '+' | '-'
     /// ```
     pub fn add_op(&mut self) -> ParseResult<BinOp> {
@@ -365,7 +365,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads an equality operator
-    /// ```
+    /// ```txt
     /// eq_op = '<' | '>' | '<=' | '>=' | '==' | '!='
     /// ```
     pub fn eq_op(&mut self) -> ParseResult<BinOp> {
@@ -392,7 +392,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads an implication operator
-    /// ```
+    /// ```txt
     /// im_op = '<-' | '->' | '<->'
     /// ```
     pub fn im_op(&mut self) -> ParseResult<BinOp> {
@@ -410,7 +410,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a conjunction operator
-    /// ```
+    /// ```txt
     /// and_op = '&'
     /// ```
     pub fn and_op(&mut self) -> ParseResult<BinOp> {
@@ -422,7 +422,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a disjunction operator
-    /// ```
+    /// ```txt
     /// or_op = '|'
     /// ```
     pub fn or_op(&mut self) -> ParseResult<BinOp> {
@@ -434,7 +434,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a quantifier keyword
-    /// ```
+    /// ```txt
     /// quant = 'all' | 'exists' | 'no'
     /// ```
     pub fn quant(&mut self) -> ParseResult<Quant> {
@@ -452,7 +452,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a comma separated list of identifiers, at least one
-    /// ```
+    /// ```txt
     /// names = Ident (',' Ident)*
     /// ```
     pub fn names(&mut self) -> ParseResult<Vec<String>> {
@@ -471,7 +471,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
 
 
     /// Reads a quantifier expression
-    /// ```
+    /// ```txt
     /// q_exp = quant names ':' exp
     /// ```
     pub fn q_exp(&mut self) -> ParseResult<ExpNode> {
@@ -489,7 +489,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads an expression
-    /// ```
+    /// ```txt
     /// exp
     ///   = q_exp
     ///   | p_exp(Or)
@@ -503,7 +503,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a statement
-    /// ```
+    /// ```txt
     /// stmt = args '|-' args
     /// ```
     pub fn stmt(&mut self) -> ParseResult<StmtNode> {
@@ -520,15 +520,15 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Reads a unifiable expression
-    /// ```
-    /// unifiable = exp '===' exp
+    /// ```txt
+    /// unifiable = args '===' args
     /// ```
     pub fn unifiable(&mut self) -> ParseResult<UnifiableNode> {
         let from = self.pos();
 
-        let left = self.exp()?;
+        let left = self.args()?;
         Self::expect(self.lit(TKind::Equiv), "Equiv")?;
-        let right = Self::expect(self.exp(), "exp")?;
+        let right = Self::expect(self.args(), "args")?;
 
         Ok(UnifiableNode {
             from, to: self.pos(),
@@ -537,15 +537,10 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     }
 
     /// Calls the given parse `fun`, if it fails reports that it expected `rule`. Then it expects EOF. Then it reports an [Error] upon failure.
-    pub fn parse<F, R>(&mut self, fun: F, rule: &str) -> Result<Output<R>, Error> where F : Fn(&mut Parser<I>, &mut NameContext) -> ParseResult<R> {
-        let mut nc = NameContext::new();
-
-        let res = Self::expect_final(fun(self, &mut nc), rule)?;
+    pub fn parse<F, R>(&mut self, fun: F, rule: &str, nc: &mut NameContext) -> Result<R, Error> where F : FnOnce(&mut Parser<I>, &mut NameContext) -> ParseResult<R> {
+        let res = Self::expect_final(fun(self, nc), rule)?;
         Self::expect_final(self.eof(), "EOF")?;
 
-        Ok(Output { 
-            result: res,
-            name_table: nc.into_rev_table()
-        })
+        Ok(res)
     }
 }

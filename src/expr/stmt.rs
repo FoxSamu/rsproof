@@ -1,119 +1,71 @@
-use std::vec::IntoIter;
+use std::fmt::{Debug, Display};
 
-use super::BExpr;
+use crate::fmt::{write_comma_separated, DisplayNamed, NameTable};
 
-/// A lemma in an input program.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
-pub enum Lemma {
-    /// A premise to be assumed as true.
-    Premise(usize, BExpr),
+use super::{BExpr, Names, Vars};
 
-    /// A statement to prove. If proven it will add to the knowledge base. If disproven, the opposite will add to the knowledge base.
-    Prove(usize, BExpr),
-
-    /// A statement to disprove. If proven it will add to the knowledge base. If disproven, the opposite will add to the knowledge base.
-    Disprove(usize, BExpr)
-}
-
-impl Lemma {
-    pub fn line(&self) -> &usize {
-        match self {
-            Lemma::Premise(ln, _) => ln,
-            Lemma::Prove(ln, _) => ln,
-            Lemma::Disprove(ln, _) => ln,
-        }
-    }
-
-    pub fn expr(&self) -> &BExpr {
-        match self {
-            Lemma::Premise(_, expr) => expr,
-            Lemma::Prove(_, expr) => expr,
-            Lemma::Disprove(_, expr) => expr
-        }
-    }
-}
-
-
-
+/// A logical statement.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
 pub struct Stmt {
-    lemmas: Vec<Lemma> 
+    premises: Vec<BExpr>,
+    conclusions: Vec<BExpr>,
 }
 
 impl Stmt {
     pub fn new() -> Self {
         Self {
-            lemmas: Vec::new()
+            premises: Vec::new(),
+            conclusions: Vec::new(),
         }
     }
 
     pub fn from_implication(premises: Vec<BExpr>, conclusions: Vec<BExpr>) -> Self {
-        let mut stmt = Self::new();
-
-        for premise in premises {
-            stmt.premise(0, premise);
-        }
-
-        for conclusion in conclusions {
-            stmt.prove(0, conclusion);
-        }
-
-        stmt
-    }
-
-    pub fn from_lemmas(lemmas: Vec<Lemma>) -> Self {
         Self {
-            lemmas
+            premises,
+            conclusions
         }
     }
 
-    pub fn premise(&mut self, line: usize, expr: BExpr) {
-        self.lemmas.push(Lemma::Premise(line, expr));
+    pub fn premises(&self) -> &Vec<BExpr> {
+        &self.premises
     }
 
-    pub fn prove(&mut self, line: usize, expr: BExpr) {
-        self.lemmas.push(Lemma::Prove(line, expr));
+    pub fn conclusions(&self) -> &Vec<BExpr> {
+        &self.conclusions
     }
 
-    pub fn disprove(&mut self, line: usize, expr: BExpr) {
-        self.lemmas.push(Lemma::Disprove(line, expr));
+    pub fn into_premises(self) -> Vec<BExpr> {
+        self.premises
     }
 
-    pub fn lemmas(&self) -> &Vec<Lemma> {
-        &self.lemmas
-    }
-
-    pub fn into_lemmas(self) -> Vec<Lemma> {
-        self.lemmas
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &Lemma> {
-        self.lemmas.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Lemma> {
-        self.lemmas.iter_mut()
+    pub fn into_conclusions(self) -> Vec<BExpr> {
+        self.conclusions
     }
 }
 
-impl From<Vec<Lemma>> for Stmt {
-    fn from(value: Vec<Lemma>) -> Self {
-        Self::from_lemmas(value)
+impl Names for Stmt {
+    fn names<A>(&self) -> A where A : FromIterator<super::Name> {
+        (&self.premises, &self.conclusions).names()
     }
 }
 
-impl Into<Vec<Lemma>> for Stmt {
-    fn into(self) -> Vec<Lemma> {
-        self.into_lemmas()
+impl Vars for Stmt {
+    fn vars<A>(&self) -> A where A : FromIterator<super::Name> {
+        (&self.premises, &self.conclusions).vars()
     }
 }
 
-impl IntoIterator for Stmt {
-    type Item = Lemma;
+impl DisplayNamed for Stmt {
+    fn fmt_named(&self, f: &mut std::fmt::Formatter<'_>, names: &crate::fmt::NameTable) -> std::fmt::Result {
+        write_comma_separated(f, names, self.premises.iter())?;
+        write!(f, " |- ")?;
+        write_comma_separated(f, names, self.conclusions.iter())?;
+        Ok(())
+    }
+}
 
-    type IntoIter = IntoIter<Lemma>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.lemmas.into_iter()
+impl Display for Stmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.with_table(&NameTable::new()), f)
     }
 }

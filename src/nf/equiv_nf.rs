@@ -12,7 +12,7 @@ fn concat(l: Clauses, r: Clauses) -> Clauses {
 fn distribute(l: Clauses, r: Clauses) -> Clauses {
     l.iter()
      .flat_map(|le| r.iter().map(|re| le.clone().concat(re.clone()))) // Cartesian product concat
-     .filter(|e| !e.is_disjoint()) // Remove tautologies
+     .filter(|e| e.is_disjoint()) // Remove tautologies
      .collect()
 }
 

@@ -1,15 +1,15 @@
 use std::process::ExitCode;
 
-use crate::expr::{AExpr, BExpr};
+use crate::expr::AExpr;
 use crate::fmt::DisplayNamed;
-use crate::parser::{parse_unifiable, Output};
-use crate::uni::{Unifiable, Unifier};
+use crate::parser::{Output, ParseContext};
+use crate::uni::Unifier;
 
 use super::options::InputSource;
 
-fn try_parse(input: InputSource) -> Result<Output<(BExpr, BExpr)>, String> {
+fn try_parse(input: InputSource) -> Result<Output<(Vec<AExpr>, Vec<AExpr>)>, String> {
     let input = input.read_to_string()?;
-    parse_unifiable(input).map_err(|err| format!("{err}"))
+    ParseContext::new().unifiable_output(input).map_err(|err| format!("{err}"))
 }
 
 pub fn main(input: InputSource) -> ExitCode {

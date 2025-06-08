@@ -1,6 +1,7 @@
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::Display;
 use std::mem::replace;
+use std::rc::Rc;
 
 use crate::fmt::DisplayNamed;
 use crate::util::fold::{Max, Min};
@@ -25,6 +26,12 @@ impl Name {
     /// Increments this name and returns what it was before the increment.
     pub fn incr(&mut self) -> Name {
         replace(self, self.succ())
+    }
+}
+
+impl Default for Name {
+    fn default() -> Self {
+        Self::any()
     }
 }
 
@@ -107,6 +114,12 @@ impl<N> Names for &N where N : Names {
 }
 
 impl<N> Names for Box<N> where N : Names {
+    fn names<A>(&self) -> A where A : FromIterator<Name> {
+        self.as_ref().names()
+    }
+}
+
+impl<N> Names for Rc<N> where N : Names {
     fn names<A>(&self) -> A where A : FromIterator<Name> {
         self.as_ref().names()
     }

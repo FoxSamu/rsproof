@@ -59,6 +59,9 @@ pub enum TKind {
     /// `===`
     Equiv,
 
+    /// `=`
+    Is,
+
     /// `==`
     Eq,
 
@@ -128,7 +131,7 @@ pub enum TKind {
 
 
 /// A token
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token {
     /// The kind of token
     pub kind: TKind,

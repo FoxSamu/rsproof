@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use crate::cnf::Clause;
 use crate::parse::parse;
 use crate::proof::format_proof;
-use crate::res::resolution;
+use crate::reso::resolution;
 
 #[deprecated] // Ultimately we need this code gone
 pub fn main(verbose: bool) -> ExitCode {

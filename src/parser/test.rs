@@ -1,19 +1,19 @@
 use super::*;
 
 fn test_aexpr(str: &str) {
-    if let Err(err) = Parser::new(str.char_stream()).parse(|p, nc| p.exp(), "exp") {
+    if let Err(err) = Parser::new(str.char_stream()).parse(|p, nc| p.exp(), "exp", &mut NameContext::new()) {
         panic!("Failed to parse '{str}': {err}")
     }
 }
 
 fn test_bexpr(str: &str) {
-    if let Err(err) = Parser::new(str.char_stream()).parse(|p, nc| p.exp(), "exp") {
+    if let Err(err) = Parser::new(str.char_stream()).parse(|p, nc| p.exp(), "exp", &mut NameContext::new()) {
         panic!("Failed to parse '{str}': {err}")
     }
 }
 
 fn test_stmt(str: &str) {
-    if let Err(err) = Parser::new(str.char_stream()).parse(|p, nc| p.stmt(), "stmt") {
+    if let Err(err) = Parser::new(str.char_stream()).parse(|p, nc| p.stmt(), "stmt", &mut NameContext::new()) {
         panic!("Failed to parse '{str}': {err}")
     }
 }
