@@ -1,5 +1,5 @@
-use crate::nf::NormalForm;
-use crate::test::TestContext;
+use rsplib::nf::NormalForm;
+use rsplib::test::TestContext;
 
 
 #[test]

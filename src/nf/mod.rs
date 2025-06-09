@@ -22,9 +22,6 @@ mod tseitin_nf;
 /// Module for atom indexing.
 mod index;
 
-#[cfg(test)]
-mod test;
-
 /// An atomic expression. Atoms are the leaves of a [BExpr] tree.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub enum Atom {

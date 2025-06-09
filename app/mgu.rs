@@ -1,9 +1,9 @@
 use std::process::ExitCode;
 
-use crate::expr::AExpr;
-use crate::fmt::DisplayNamed;
-use crate::parser::{Output, ParseContext};
-use crate::uni::Unifier;
+use rsplib::expr::AExpr;
+use rsplib::fmt::DisplayNamed;
+use rsplib::parser::{Output, ParseContext};
+use rsplib::uni::Unifier;
 
 use super::options::InputSource;
 

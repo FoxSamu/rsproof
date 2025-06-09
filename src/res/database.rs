@@ -6,6 +6,27 @@ use crate::expr::Name;
 
 type RcClauses = BTreeSet<Rc<Clause>>;
 
+/// A [ClauseDatabase] systematically stores [Clause]s so that clauses with complementary predicates,
+/// e.g. `P` and `!P`, can be quickly matched.
+/// 
+/// Say a resolution algorithm is supposed to resolve over a knowledge base of `N` clauses, then there
+/// are `N^2` possible pairs of clauses to which resolution can be applied. However, most of these
+/// pairs will not be a *resolvable pair*, that is, they share no complementary predicate or they cannot
+/// be unified.
+/// 
+/// A naive database would just be a vector or set, requiring one to iterate `O(N^2)` pairs of clauses to
+/// find resolvable pairs. By more systematically storing clauses, it is possible to make a significant
+/// reduction to the search space. It is quite easy to conclude that clauses never make a resolvable pair
+/// if they do not share the usage of a predicate in complementary forms&ndash;and then we have not even
+/// done the unification yet.
+/// 
+/// The [ClauseDatabase] sorts clauses based on which predicates they refer to and whether they are negated,
+/// that is, it keeps two multimaps, one mapping any name `P` to a set of clauses which have a non-negated
+/// use of a predicate named `P`, and one mapping `P` to a set of clauses which have a negated use of `P`.
+/// The database then reduces the search space by matching these maps: if a pair of clauses is resolvable,
+/// then one clause appears in the positive map under some name `P` and the other appears in the negative
+/// map under the same name `P`. Thus, for any predicate name it knows of, it simply pairs the positive set
+/// under that name with the negative set under that name.
 #[derive(Debug, Clone)]
 pub struct ClauseDatabase {
     // Index stores a set of all clauses, but it also refers to clauses by predicate names
@@ -14,31 +35,38 @@ pub struct ClauseDatabase {
     // E.g. clause `P | Q(:x) | !R(a) | R(:x)` is stored in the field `clauses`, but also
     // under names `P`, `Q`, `R` in `by_pos`, and under name `R` in `by_neg`.
 
-    // Use counted references so we can refer to the memory from multiple locations in
+    // Use counted references so we can refer to a clause from multiple locations in
     // the data structure.
 
 
     clauses: RcClauses,
     by_pos: BTreeMap<Name, RcClauses>,
     by_neg: BTreeMap<Name, RcClauses>,
-    names: BTreeSet<Name>
+    candidates: BTreeSet<(Rc<Clause>, Rc<Clause>)>
 }
 
 impl ClauseDatabase {
+    /// Instantiates a new [ClauseDatabase] with no clauses.
     pub fn new() -> Self {
         Self {
             clauses: RcClauses::new(),
             by_pos: BTreeMap::new(),
             by_neg: BTreeMap::new(),
-            names: BTreeSet::new(),
+            candidates: BTreeSet::new()
         }
     }
 
+    /// Learns a specific clause.
     pub fn learn(&mut self, c: Clause) {
         let rc = Rc::new(c);
 
+        let mut pos_names = BTreeSet::new();
+        let mut neg_names = BTreeSet::new();
+
+        // Insert in total clause set
         self.clauses.insert(rc.clone());
 
+        // Map by positive names
         for pos in rc.pos().iter_pred_names() {
             let entry = self.by_pos
                 .entry(*pos)
@@ -46,9 +74,10 @@ impl ClauseDatabase {
 
             entry.insert(rc.clone());
 
-            self.names.insert(*pos);
+            pos_names.insert(*pos);
         }
 
+        // Map by negative names
         for neg in rc.neg().iter_pred_names() {
             let entry = self.by_neg
                 .entry(*neg)
@@ -56,65 +85,36 @@ impl ClauseDatabase {
 
             entry.insert(rc.clone());
 
-            self.names.insert(*neg);
+            neg_names.insert(*neg);
         }
-    }
 
-    pub fn resolution_candidates(&self, out: &mut BTreeSet<(Rc<Clause>, Rc<Clause>)>) {
-        for name in self.names.iter() {
-            if let (Some(pos), Some(neg)) = (self.by_pos.get(name), self.by_neg.get(name)) {
-                for pos_elem in pos {
-                    for neg_elem in neg {
-                        if **pos_elem != **neg_elem {
-                            out.insert((pos_elem.clone(), neg_elem.clone()));
-                        }
+        // Map positive names with negative candidates
+        for name in pos_names {
+            if let Some(set) = self.by_neg.get(&name) {
+                for elem in set {
+                    if *rc != **elem {
+                        self.candidates.insert((rc.clone(), elem.clone()));
+                    }
+                }
+            }
+        }
+
+        // Map negative names with positive candidates
+        for name in neg_names {
+            if let Some(set) = self.by_pos.get(&name) {
+                for elem in set {
+                    if *rc != **elem {
+                        self.candidates.insert((elem.clone(), rc.clone()));
                     }
                 }
             }
         }
     }
-}
 
-
-
-#[cfg(test)]
-mod test {
-    use std::collections::BTreeSet;
-    use std::rc::Rc;
-
-    use crate::nf::Clause;
-    use crate::res::database::ClauseDatabase;
-    use crate::test::TestContext;
-
-    fn pairs(ctx: &mut TestContext, v: Vec<(&str, &str)>) -> BTreeSet<(Rc<Clause>, Rc<Clause>)> {
-        let mut new = BTreeSet::new();
-
-        for (l, r) in v {
-            new.insert((Rc::new(ctx.clause(l)), Rc::new(ctx.clause(r))));
+    /// Resolves a set of resolution candidates. These candidates are added to the set `out`
+    pub fn resolution_candidates(&self, out: &mut BTreeSet<(Rc<Clause>, Rc<Clause>)>) {
+        for cand in self.candidates.iter() {
+            out.insert(cand.clone());
         }
-
-        new
-    }
-    
-    #[test]
-    fn test_1() {
-        let mut ctx = TestContext::new();
-
-        let mut db = ClauseDatabase::new();
-
-        db.learn(ctx.clause("P(:x) | P(a) | Q(a)"));
-        db.learn(ctx.clause("!P(:x)"));
-        db.learn(ctx.clause("!Q(b)"));
-
-        let expected = pairs(&mut ctx, vec![
-            ("P(:x) | P(a) | Q(a)", "!P(:x)"),
-            ("P(:x) | P(a) | Q(a)", "!Q(b)"),
-        ]);
-
-        let mut actual = BTreeSet::new();
-        db.resolution_candidates(&mut actual);
-
-
-        assert_eq!(expected, actual);
     }
 }

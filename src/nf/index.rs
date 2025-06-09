@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::mem::{replace, take};
+use std::mem::replace;
 
 use crate::expr::{AExpr, Name, Names, Vars};
 use crate::nf::Atom;
@@ -199,7 +199,7 @@ impl Unifiable for PredicateIndex {
         self
     }
 
-    fn can_resolve_mgu(a: &Self, b: &Self) -> bool {
+    fn can_resolve_mgu(_: &Self, _: &Self) -> bool {
         false
     }
 

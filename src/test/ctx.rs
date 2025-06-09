@@ -30,24 +30,48 @@ impl TestContext {
         self.pc.aexpr(str).unwrap()
     }
 
+    pub fn aexprs<const N: usize>(&mut self, str: [&str; N]) -> Vec<AExpr> {
+        str.into_iter().map(|e| self.aexpr(e)).collect()
+    }
+
     pub fn bexpr(&mut self, str: &str) -> BExpr {
         self.pc.bexpr(str).unwrap()
+    }
+
+    pub fn bexprs<const N: usize>(&mut self, str: [&str; N]) -> Vec<BExpr> {
+        str.into_iter().map(|e| self.bexpr(e)).collect()
     }
 
     pub fn atom(&mut self, str: &str) -> Atom {
         to_atom(self.bexpr(str))
     }
 
+    pub fn atoms<const N: usize>(&mut self, str: [&str; N]) -> Vec<Atom> {
+        str.into_iter().map(|e| self.atom(e)).collect()
+    }
+
     pub fn clause(&mut self, str: &str) -> Clause {
         to_clause(self.bexpr(str))
+    }
+
+    pub fn clauses<const N: usize>(&mut self, str: [&str; N]) -> Vec<Clause> {
+        str.into_iter().map(|e| self.clause(e)).collect()
     }
 
     pub fn cnf(&mut self, str: &str) -> NormalForm {
         to_cnf(self.bexpr(str))
     }
 
+    pub fn cnfs<const N: usize>(&mut self, str: [&str; N]) -> Vec<NormalForm> {
+        str.into_iter().map(|e| self.cnf(e)).collect()
+    }
+
     pub fn name(&mut self, str: &str) -> Name {
         self.pc.name(str).unwrap()
+    }
+
+    pub fn names<const N: usize>(&mut self, str: [&str; N]) -> Vec<Name> {
+        str.into_iter().map(|e| self.name(e)).collect()
     }
 
     pub fn mgu<const N: usize>(&mut self, str: [(&str, &str); N]) -> Unifier {

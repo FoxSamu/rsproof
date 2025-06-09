@@ -1,10 +1,10 @@
 use std::io::stdin;
 use std::process::ExitCode;
 
-use crate::cnf::Clause;
-use crate::parse::parse;
-use crate::proof::format_proof;
-use crate::reso::resolution;
+use rsplib::cnf::Clause;
+use rsplib::parse::parse;
+use rsplib::proof::format_proof;
+use rsplib::reso::resolution;
 
 #[deprecated] // Ultimately we need this code gone
 pub fn main(verbose: bool) -> ExitCode {

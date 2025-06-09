@@ -6,9 +6,6 @@ pub mod proof;
 pub mod fmto;
 pub mod unify;
 
-/// App.
-pub mod app;
-
 /// Expression trees.
 pub mod expr;
 
@@ -30,5 +27,5 @@ pub mod res;
 /// Miscellaneous utilities.
 pub mod util;
 
-#[cfg(test)]
+/// Testing utilities.
 pub mod test;

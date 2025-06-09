@@ -4,9 +4,8 @@ use std::rc::Rc;
 
 use crate::fmt::{write_comma_separated, DisplayNamed, NameTable};
 use crate::uni::{Unifiable, Unifier};
-use crate::util::fold::{Max, Min};
 
-use super::{Name, Names, BExpr};
+use super::{Name, Names};
 
 /// A non-boolean expression. Unlike [BExpr], this does not evaluate to true or false.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]

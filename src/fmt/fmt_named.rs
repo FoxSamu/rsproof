@@ -3,8 +3,6 @@ use std::fmt::{Debug, Display, Formatter, Result};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::expr::Names;
-
 use super::NameTable;
 
 pub trait DisplayNamed {
@@ -76,8 +74,6 @@ impl<T> DisplayNamed for Option<T> where T : DisplayNamed {
 
 impl<T> DisplayNamed for Vec<T> where T : DisplayNamed {
     fn fmt_named(&self, f: &mut Formatter<'_>, names: &NameTable) -> Result {
-        let mut comma = false;
-
         write!(f, "[")?;
         write_comma_separated(f, names, self.iter())?;
         write!(f, "]")?;
@@ -88,8 +84,6 @@ impl<T> DisplayNamed for Vec<T> where T : DisplayNamed {
 
 impl<T> DisplayNamed for BTreeSet<T> where T : DisplayNamed {
     fn fmt_named(&self, f: &mut Formatter<'_>, names: &NameTable) -> Result {
-        let mut comma = false;
-
         write!(f, "{{")?;
         write_comma_separated(f, names, self.iter())?;
         write!(f, "}}")?;
@@ -100,8 +94,6 @@ impl<T> DisplayNamed for BTreeSet<T> where T : DisplayNamed {
 
 impl<T> DisplayNamed for HashSet<T> where T : DisplayNamed {
     fn fmt_named(&self, f: &mut Formatter<'_>, names: &NameTable) -> Result {
-        let mut comma = false;
-
         write!(f, "{{")?;
         write_comma_separated(f, names, self.iter())?;
         write!(f, "}}")?;

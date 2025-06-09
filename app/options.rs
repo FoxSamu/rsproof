@@ -2,7 +2,7 @@ use std::env::{self, Args};
 use std::mem::replace;
 use std::{fs, io};
 
-use crate::util::trires::{TriRes, TriResult};
+use rsplib::util::trires::{TriRes, TriResult};
 
 pub enum InputSource {
     Raw(String),

@@ -7,9 +7,9 @@ edition = "2024"
 
 
 [lib]
-name = "rsproof"
+name = "rsplib"
 path = "src/lib.rs"
 
 [[bin]]
 name = "rsproof"
-path = "src/main.rs"
+path = "app/main.rs"

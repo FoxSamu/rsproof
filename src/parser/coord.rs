@@ -48,14 +48,6 @@ pub struct InputRange {
 }
 
 impl InputRange {
-    /// Creates an absent [ParseResult] at this [InputRange].
-    pub(super) fn absent<T>(&self) -> ParseResult<T> {
-        return Err(ParseError::Absent {
-            from: self.from,
-            to: self.to
-        });
-    }
-
     /// Creates an error [ParseResult] at this [InputRange] and with given message.
     pub(super) fn error<T, S>(&self, msg: S) -> ParseResult<T> where S : Into<String> {
         return Err(ParseError::Error {

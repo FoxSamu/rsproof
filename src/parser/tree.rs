@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use crate::expr::{AExpr, BExpr, Stmt};
-use crate::uni::Unifiable;
 
 use super::namer::NameContext;
 use super::result::ParseResult;

@@ -5,7 +5,6 @@
 use crate::expr::*;
 use crate::fmt::NameTable;
 use crate::parser::result::ParseResult;
-use crate::uni::Unifiable;
 
 pub use input::*;
 pub use output::*;
@@ -28,19 +27,15 @@ mod namer;
 mod lexer;
 mod parser;
 
-#[cfg(test)]
-mod test;
-
 
 
 pub struct ParseContext {
-    nc: NameContext,
-    nt: NameTable
+    nc: NameContext
 }
 
 impl ParseContext {
     pub fn new() -> Self {
-        Self { nc: NameContext::new(), nt: NameTable::new() }
+        Self { nc: NameContext::new() }
     }
 
     pub fn name_table(&self) -> &NameTable {
@@ -63,50 +58,75 @@ impl ParseContext {
     }
 
 
-    pub fn name<S>(&mut self, input: S)-> Result<Name, Error> where S : Input {
+    pub fn name_valid<S>(&mut self, input: S) -> Result<(), Error> where S : Input {
+        self.parse(input, "ident", |p, _| p.ident())?;
+        Ok(())
+    }
+
+    pub fn name<S>(&mut self, input: S) -> Result<Name, Error> where S : Input {
         self.parse(input, "ident", |p, nc| {
             let id = p.ident()?;
             Ok(nc.resolve_static(id))
         })
     }
 
-    pub fn name_output<S>(&mut self, input: S)-> Result<Output<Name>, Error> where S : Input {
+    pub fn name_output<S>(&mut self, input: S) -> Result<Output<Name>, Error> where S : Input {
         self.name(input).map(|it| self.with_output(it))
     }
 
 
-    pub fn stmt<S>(&mut self, input: S)-> Result<Stmt, Error> where S : Input {
+    pub fn stmt_valid<S>(&mut self, input: S) -> Result<(), Error> where S : Input {
+        self.parse(input, "stmt", |p, _| p.stmt())?;
+        Ok(())
+    }
+
+    pub fn stmt<S>(&mut self, input: S) -> Result<Stmt, Error> where S : Input {
         self.parse(input, "stmt", |p, nc| p.stmt()?.as_stmt(nc))
     }
 
-    pub fn stmt_output<S>(&mut self, input: S)-> Result<Output<Stmt>, Error> where S : Input {
+    pub fn stmt_output<S>(&mut self, input: S) -> Result<Output<Stmt>, Error> where S : Input {
         self.stmt(input).map(|it| self.with_output(it))
     }
 
 
-    pub fn unifiable<S>(&mut self, input: S)-> Result<(Vec<AExpr>, Vec<AExpr>), Error> where S : Input {
+    pub fn unifiable_valid<S>(&mut self, input: S) -> Result<(), Error> where S : Input {
+        self.parse(input, "unifiable", |p, _| p.unifiable())?;
+        Ok(())
+    }
+
+    pub fn unifiable<S>(&mut self, input: S) -> Result<(Vec<AExpr>, Vec<AExpr>), Error> where S : Input {
         self.parse(input, "unifiable", |p, nc| p.unifiable()?.as_unifiable(nc))
     }
 
-    pub fn unifiable_output<S>(&mut self, input: S)-> Result<Output<(Vec<AExpr>, Vec<AExpr>)>, Error> where S : Input {
+    pub fn unifiable_output<S>(&mut self, input: S) -> Result<Output<(Vec<AExpr>, Vec<AExpr>)>, Error> where S : Input {
         self.unifiable(input).map(|it| self.with_output(it))
     }
 
 
-    pub fn aexpr<S>(&mut self, input: S)-> Result<AExpr, Error> where S : Input {
+    pub fn aexpr_valid<S>(&mut self, input: S) -> Result<(), Error> where S : Input {
+        self.parse(input, "exp", |p, _| p.exp())?;
+        Ok(())
+    }
+
+    pub fn aexpr<S>(&mut self, input: S) -> Result<AExpr, Error> where S : Input {
         self.parse(input, "exp", |p, nc| p.exp()?.as_aexpr(nc))
     }
 
-    pub fn aexpr_output<S>(&mut self, input: S)-> Result<Output<AExpr>, Error> where S : Input {
+    pub fn aexpr_output<S>(&mut self, input: S) -> Result<Output<AExpr>, Error> where S : Input {
         self.aexpr(input).map(|it| self.with_output(it))
     }
 
 
-    pub fn bexpr<S>(&mut self, input: S)-> Result<BExpr, Error> where S : Input {
+    pub fn bexpr_valid<S>(&mut self, input: S) -> Result<(), Error> where S : Input {
+        self.parse(input, "exp", |p, _| p.exp())?;
+        Ok(())
+    }
+
+    pub fn bexpr<S>(&mut self, input: S) -> Result<BExpr, Error> where S : Input {
         self.parse(input, "exp", |p, nc| p.exp()?.as_bexpr(nc))
     }
 
-    pub fn bexpr_output<S>(&mut self, input: S)-> Result<Output<BExpr>, Error> where S : Input {
+    pub fn bexpr_output<S>(&mut self, input: S) -> Result<Output<BExpr>, Error> where S : Input {
         self.bexpr(input).map(|it| self.with_output(it))
     }
 }

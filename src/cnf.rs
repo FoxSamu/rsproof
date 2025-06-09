@@ -1,11 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::{format, Debug, Display, Write};
+use std::fmt::{Debug, Display, Write};
 use std::hash::Hash;
 
 use crate::expro::{Expr, Name, Term};
 use crate::expro::Expr::*;
 use crate::fmto::NamedDisplay;
-use crate::unify::{self, unify, Unifiable, Unifier};
+use crate::unify::{unify, Unifiable, Unifier};
 
 
 /// A clause is a disjunction of atom expressions. That is, this struct represents a conjunction of symbols,
@@ -252,15 +252,6 @@ impl Unifiable for Clause {
 }
 
 
-
-
-fn sub_name(n: u64, from: u64, to: u64) -> u64 {
-    if from == n {
-        to
-    } else {
-        n
-    }
-}
 
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]

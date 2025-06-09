@@ -7,9 +7,10 @@ mod legacy;
 mod mgu;
 mod prove;
 
-pub fn main() -> ExitCode {
+fn main() -> ExitCode {
     let opts = Options::parse();
-    
+
+    #[allow(deprecated)]
     match opts.run_mode {
         options::RunMode::Legacy(verbose) => legacy::main(verbose),
         options::RunMode::Prove(input) => prove::main(input),

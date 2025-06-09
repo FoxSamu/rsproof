@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::cnf::{Clause, Atom};
 use crate::expro::Term;
-use crate::proof::{write_proof, Proof, Step};
+use crate::proof::{write_proof, Proof};
 
 /// A candidate clause, tracking its complexity. This struct orders clauses by complexity when used
 /// in a [BTreeSet], allowing us to prioritise low-complexity clauses.

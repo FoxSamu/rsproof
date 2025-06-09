@@ -1,4 +1,3 @@
-use crate::expr::Name;
 use crate::fmt::NameTable;
 
 

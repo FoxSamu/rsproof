@@ -5,7 +5,6 @@ use super::token::*;
 use super::tree::*;
 use super::error::*;
 use super::coord::*;
-use super::output::*;
 
 /// A parser
 pub struct Parser<I> where I : Iterator<Item = char> {
