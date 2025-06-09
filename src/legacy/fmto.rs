@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::{Arguments, Display, Formatter, Result, Write};
 use std::ops::Deref;
 
-use crate::expro::Name;
+use super::expro::Name;
 
 /// A formatter that supports the resolution of numeric names. It is used to print expressions that internally use
 /// numeric names with their original names, given a table that maps numeric names to strings.

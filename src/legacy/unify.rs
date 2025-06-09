@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::expro::{Name, Term};
-use crate::expro::Term::*;
+use super::expro::{Name, Term};
+use super::expro::Term::*;
 
 pub type Unifier = BTreeMap<Name, Term>;
 

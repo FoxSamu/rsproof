@@ -2,10 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Debug, Display, Write};
 use std::hash::Hash;
 
-use crate::expro::{Expr, Name, Term};
-use crate::expro::Expr::*;
-use crate::fmto::NamedDisplay;
-use crate::unify::{unify, Unifiable, Unifier};
+use super::expro::{Expr, Name, Term};
+use super::expro::Expr::*;
+use super::fmto::NamedDisplay;
+use super::unify::{unify, Unifiable, Unifier};
 
 
 /// A clause is a disjunction of atom expressions. That is, this struct represents a conjunction of symbols,
@@ -374,7 +374,7 @@ impl Debug for Atom {
 }
 
 impl NamedDisplay for Atom {
-    fn named_fmt(&self, f: &mut crate::fmto::NamedFormatter) -> std::fmt::Result {
+    fn named_fmt(&self, f: &mut super::fmto::NamedFormatter) -> std::fmt::Result {
         match self {
             // Predicate: P(a, b, ...)
             Atom::Predicate(n, v) => {

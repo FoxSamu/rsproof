@@ -4,7 +4,7 @@ use std::io::Read;
 use Token::*;
 use ParseResult::*;
 
-use crate::expro::*;
+use super::expro::*;
 
 /// A token.
 #[derive(Clone, Copy, PartialEq, Eq)]

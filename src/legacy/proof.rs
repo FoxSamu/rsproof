@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use crate::cnf::Clause;
-use crate::reso::Derivation;
+use super::cnf::Clause;
+use super::reso::Derivation;
 
 #[derive(PartialEq, Eq, Clone, PartialOrd, Ord, Debug)]
 pub enum Step {

@@ -1,6 +1,6 @@
-use crate::cnf::Clause;
-use crate::parse::parse_string;
-use crate::reso::resolution;
+use super::cnf::Clause;
+use super::parse::parse_string;
+use super::reso::resolution;
 
 fn prove(statement: &str) -> bool {
 

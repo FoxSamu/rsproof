@@ -1,10 +1,12 @@
+#![allow(deprecated)]
+
 use std::io::stdin;
 use std::process::ExitCode;
 
-use rsplib::cnf::Clause;
-use rsplib::parse::parse;
-use rsplib::proof::format_proof;
-use rsplib::reso::resolution;
+use rsplib::legacy::cnf::Clause;
+use rsplib::legacy::parse::parse;
+use rsplib::legacy::proof::format_proof;
+use rsplib::legacy::reso::resolution;
 
 #[deprecated] // Ultimately we need this code gone
 pub fn main(verbose: bool) -> ExitCode {

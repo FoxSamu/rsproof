@@ -1,10 +1,5 @@
-pub mod expro;
-pub mod cnf;
-pub mod reso;
-pub mod parse;
-pub mod proof;
-pub mod fmto;
-pub mod unify;
+/// Legacy implementation.
+pub mod legacy;
 
 /// Expression trees.
 pub mod expr;

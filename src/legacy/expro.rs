@@ -4,8 +4,8 @@ use std::fmt::{Debug, Display, Formatter, Write};
 use Expr::*;
 use Term::*;
 
-use crate::fmto::{NamedDisplay, NamedFormatter};
-use crate::unify::{Unifiable, Unifier};
+use super::fmto::{NamedDisplay, NamedFormatter};
+use super::unify::{Unifiable, Unifier};
 
 
 pub type Name = u64;
