@@ -6,7 +6,7 @@ use crate::expr::Name;
 
 type RcClauses = BTreeSet<Rc<Clause>>;
 
-/// A [ClauseDatabase] systematically stores [Clause]s so that clauses with complementary predicates,
+/// A [KnowledgeBase] systematically stores [Clause]s so that clauses with complementary predicates,
 /// e.g. `P` and `!P`, can be quickly matched.
 /// 
 /// Say a resolution algorithm is supposed to resolve over a knowledge base of `N` clauses, then there
@@ -20,7 +20,7 @@ type RcClauses = BTreeSet<Rc<Clause>>;
 /// if they do not share the usage of a predicate in complementary forms&ndash;and then we have not even
 /// done the unification yet.
 /// 
-/// The [ClauseDatabase] sorts clauses based on which predicates they refer to and whether they are negated,
+/// The [KnowledgeBase] sorts clauses based on which predicates they refer to and whether they are negated,
 /// that is, it keeps two multimaps, one mapping any name `P` to a set of clauses which have a non-negated
 /// use of a predicate named `P`, and one mapping `P` to a set of clauses which have a negated use of `P`.
 /// The database then reduces the search space by matching these maps: if a pair of clauses is resolvable,
@@ -28,7 +28,7 @@ type RcClauses = BTreeSet<Rc<Clause>>;
 /// map under the same name `P`. Thus, for any predicate name it knows of, it simply pairs the positive set
 /// under that name with the negative set under that name.
 #[derive(Debug, Clone)]
-pub struct ClauseDatabase {
+pub struct KnowledgeBase {
     // Index stores a set of all clauses, but it also refers to clauses by predicate names
     // that appear in the clause. It also tracks all the predicate names it knows of.
 
@@ -45,8 +45,8 @@ pub struct ClauseDatabase {
     candidates: BTreeSet<(Rc<Clause>, Rc<Clause>)>
 }
 
-impl ClauseDatabase {
-    /// Instantiates a new [ClauseDatabase] with no clauses.
+impl KnowledgeBase {
+    /// Instantiates a new [KnowledgeBase] with no clauses.
     pub fn new() -> Self {
         Self {
             clauses: RcClauses::new(),
@@ -56,12 +56,15 @@ impl ClauseDatabase {
         }
     }
 
-    /// Learns a specific clause.
-    pub fn learn(&mut self, c: Clause) {
+    /// Learns a specific clause. The return value is a set of candidates that were freshly
+    /// obtained from learning this clause.
+    pub fn learn(&mut self, c: Clause) -> BTreeSet<(Rc<Clause>, Rc<Clause>)> {
         let rc = Rc::new(c);
 
         let mut pos_names = BTreeSet::new();
         let mut neg_names = BTreeSet::new();
+
+        let mut new_candidates = BTreeSet::new();
 
         // Insert in total clause set
         self.clauses.insert(rc.clone());
@@ -94,6 +97,7 @@ impl ClauseDatabase {
                 for elem in set {
                     if *rc != **elem {
                         self.candidates.insert((rc.clone(), elem.clone()));
+                        new_candidates.insert((elem.clone(), rc.clone()));
                     }
                 }
             }
@@ -105,13 +109,16 @@ impl ClauseDatabase {
                 for elem in set {
                     if *rc != **elem {
                         self.candidates.insert((elem.clone(), rc.clone()));
+                        new_candidates.insert((elem.clone(), rc.clone()));
                     }
                 }
             }
         }
+
+        new_candidates
     }
 
-    /// Resolves a set of resolution candidates. These candidates are added to the set `out`
+    /// Resolves a set of resolution candidates. These candidates are added to the set `out`.
     pub fn resolution_candidates(&self, out: &mut BTreeSet<(Rc<Clause>, Rc<Clause>)>) {
         for cand in self.candidates.iter() {
             out.insert(cand.clone());

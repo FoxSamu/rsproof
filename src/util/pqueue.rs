@@ -1,0 +1,409 @@
+use std::fmt::Debug;
+use std::hash::Hash;
+
+use crate::fmt::DisplayNamed;
+
+/// A priority queue, which prioritises based on weight. That is, elements with the lowest weights
+/// come out of the queue first. The queue is implemented by a binary heap.
+pub struct PQueue<E, W = usize> where W : Ord + Copy {
+    tree: Vec<(E, W)>
+}
+
+impl<E, W> PQueue<E, W> where W : Ord + Copy {
+
+    /// Creates a new priority queue.
+    pub fn new() -> Self {
+        Self {
+            tree: Vec::new()
+        }
+    }
+
+    /// Creates a new priority queue from the elements in the given collection or iterator,
+    /// by weighing them using a specific scale function. The scale function assigns a weight
+    /// to each element in the collection.
+    pub fn assoc<I, F>(iter: I, mut scale: F) -> Self
+    where
+    I : IntoIterator<Item = E>,
+    F : FnMut(&E) -> W {
+        Self::from_iter(iter.into_iter().map(|e| {
+            let w = scale(&e);
+            (e, w)
+        }))
+    }
+
+    /// Returns whether the queue is empty, that is, whether it contains no elements.
+    /// 
+    /// This operation runs in `O(1)`.
+    pub fn is_empty(&self) -> bool {
+        self.tree.is_empty()
+    }
+
+    /// Returns the amount of elements in the queue.
+    /// 
+    /// This operation runs in `O(1)`.
+    pub fn len(&self) -> usize {
+        self.tree.len()
+    }
+
+    /// Retrieves, but does not remove, the first element in the queue and its weight.
+    /// When the queue is empty, [None] is returned.
+    /// 
+    /// This operation runs in `O(1)`.
+    pub fn peek(&self) -> Option<(&E, &W)> {
+        self.tree.first().map(|it| (&it.0, &it.1))
+    }
+
+    /// Retreves, but does not remove, the first element in the queue, ignoring its weight.
+    /// When the queue is empty, [None] is returned.
+    /// 
+    /// This operation runs in `O(1)`.
+    pub fn peek_elem(&self) -> Option<&E> {
+        self.tree.first().map(|it| &it.0)
+    }
+
+    /// Inserts a new element into the queue using the given weight.
+    /// 
+    /// This operation runs in `O(log N)` in a queue of size `N`.
+    pub fn insert(&mut self, elem: E, weight: W) {
+        let i = self.tree.len();
+
+        // Add element at end
+        self.tree.push((elem, weight));
+
+        // Sift up
+        self.upheap(i);
+    }
+
+    /// Removes the first element in the queue, and its weight.
+    /// When the queue is empty, [None] is returned.
+    /// 
+    /// This operation runs in `O(log N)` in a queue of size `N`.
+    pub fn poll(&mut self) -> Option<(E, W)> {
+        // Extract last element
+        let mut elem = self.tree.pop()?;
+
+        let first = if let Some(r) = self.tree.first_mut() {
+            r
+        } else {
+            // Queue is empty now, so the element we removed was the only
+            // element that was there
+            return Some(elem);
+        };
+
+        // Swap last element with first element, so we now have extracted
+        // the first element and the last element is in place of the first
+        std::mem::swap(first, &mut elem);
+
+        // Sift element down
+        self.downheap(0);
+
+        Some(elem)
+    }
+
+    /// Removes the first element in the queue, ignoring its weight.
+    /// When the queue is empty, [None] is returned.
+    /// 
+    /// This operation runs in `O(log N)` in a queue of size `N`.
+    pub fn poll_elem(&mut self) -> Option<E> {
+        self.poll().map(|it| it.0)
+    }
+
+    /// Removes the first element in the queue while simultaneously inserting
+    /// another element. Returns the removed element and its weight.
+    /// When the queue is empty, [None] is returned and only the new element
+    /// is inserted.
+    /// 
+    /// This operation runs in `O(log N)` in a queue of size `N`.
+    pub fn poll_insert(&mut self, elem: E, weight: W) -> Option<(E, W)> {
+        // New element
+        let mut elem = (elem, weight);
+
+        let first = if let Some(r) = self.tree.first_mut() {
+            r
+        } else {
+            // Queue is empty, so all we need to do is insert the element
+            self.tree.push(elem);
+            return None;
+        };
+
+        // Swap out the first item in the queue with the new element
+        std::mem::swap(first, &mut elem);
+
+        // Sift element down
+        self.downheap(0);
+
+        Some(elem)
+    }
+
+    /// Removes the first element in the queue while simultaneously inserting
+    /// another element. Returns the removed element, without its weight.
+    /// When the queue is empty, [None] is returned and only the new element
+    /// is inserted.
+    /// 
+    /// This operation runs in `O(log N)` in a queue of size `N`.
+    pub fn poll_elem_insert(&mut self, elem: E, weight: W) -> Option<E> {
+        self.poll_insert(elem, weight).map(|it| it.0)
+    }
+
+    /// Removes all elements from this queue.
+    /// 
+    /// This operation runs in `O(1)`.
+    pub fn clear(&mut self) {
+        self.tree.clear();
+    }
+
+    fn upheap(&mut self, mut i: usize) {
+        let mut p = parent(i);
+
+        while i != 0 && self.tree[p].1 > self.tree[i].1 {
+            self.tree.swap(p, i);
+
+            i = p;
+            p = parent(i);
+        }
+    }
+
+    fn downheap(&mut self, mut i: usize) {
+        loop {
+            let l = left(i);
+            let r = right(i);
+
+            let left = self.tree.get(l);
+            let right = self.tree.get(r);
+            let cur = &self.tree[i];
+
+            match (left, right) {
+                (Some(l_elem), Some(r_elem)) => {
+                    if l_elem.1 >= cur.1 && r_elem.1 >= cur.1 {
+                        // Heap property is restored
+                        break;
+                    }
+
+                    if l_elem.1 < r_elem.1 {
+                        self.tree.swap(l, i);
+                        i = l;
+                    } else {
+                        self.tree.swap(r, i);
+                        i = r;
+                    }
+                },
+
+                (None, Some(r_elem)) => {
+                    if r_elem.1 < cur.1 {
+                        self.tree.swap(r, i);
+                        i = r;
+                    } else {
+                        // Heap property is restored
+                        break;
+                    }
+                },
+
+                (Some(l_elem), None) => {
+                    if l_elem.1 < cur.1 {
+                        self.tree.swap(l, i);
+                        i = l;
+                    } else {
+                        // Heap property is restored
+                        break;
+                    }
+                },
+
+                (None, None) => {
+                    // We're in a leaf node now
+                    break
+                }
+            }
+        }
+    }
+
+    fn restore(&mut self) {
+        if self.len() <= 1 {
+            return;
+        }
+
+        let mut i = self.tree.len() / 2;
+
+        while i > 0 {
+            self.downheap(i);
+            i -= 1;
+        }
+
+        self.downheap(0);
+    }
+
+
+    /// Returns an iterator that iterates the **elements and weights** in this queue in sorted order.
+    /// The creation of the iterator takes `O(N)` over a queue of `N` elements and the
+    /// retrieval of an element from this iterator takes `O(log N)`. To retrieve an iterator
+    /// in `O(1)`, use [PQueue::into_iter].
+    pub fn iter<'lt>(&'lt self) -> Iter<'lt, E, W> {
+        let q = PQueue {
+            tree: self.tree.iter().map(|it| (it, it.1)).collect()
+        };
+
+        Iter { q }
+    }
+
+
+    /// Returns an iterator that iterates **only the elements** in this queue in sorted order.
+    /// The creation of the iterator takes `O(N)` over a queue of `N` elements and the
+    /// retrieval of an element from this iterator takes `O(log N)`. To retrieve an iterator
+    /// in `O(1)`, use [PQueue::into_iter_elem].
+    pub fn iter_elem<'lt>(&'lt self) -> ElemIter<'lt, E, W> {
+        let q = PQueue {
+            tree: self.tree.iter().map(|it| (&it.0, it.1)).collect()
+        };
+
+        ElemIter { q }
+    }
+
+
+    /// Returns an iterator that iterates **only the elements**
+    /// of this queue. The priority queue is moved and consumed, allowing
+    /// for a `O(1)` iterator setup. The retrieval of an element takes `O(log N)`
+    /// for a queue of `N` elements.
+    pub fn into_iter_elem(self) -> IntoElemIter<E, W> {
+        IntoElemIter { q: self }
+    }
+}
+
+
+#[inline]
+const fn parent(i: usize) -> usize {
+    i / 2
+}
+
+#[inline]
+const fn left(i: usize) -> usize {
+    i * 2 + 1
+}
+
+#[inline]
+const fn right(i: usize) -> usize {
+    i * 2 + 2
+}
+
+
+
+impl<E, W> FromIterator<(E, W)> for PQueue<E, W> where W : Ord + Copy {
+    /// Creates a new queue with the elements of this iterator.
+    fn from_iter<T: IntoIterator<Item = (E, W)>>(iter: T) -> Self {
+        let mut new = Self {
+            tree: iter.into_iter().collect()
+        };
+
+        new.restore();
+
+        new
+    }
+}
+
+
+/// Generated by [PQueue::into_iter].
+pub struct IntoIter<E, W> where W : Ord + Copy {
+    q: PQueue<E, W>
+}
+
+impl<E, W> Iterator for IntoIter<E, W> where W : Ord + Copy {
+    type Item = (E, W);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.q.poll()
+    }
+}
+
+impl<E, W> IntoIterator for PQueue<E, W> where W : Ord + Copy {
+    type Item = (E, W);
+
+    type IntoIter = IntoIter<E, W>;
+
+    /// Returns an iterator that iterates the **elements and their weights**
+    /// of this queue. The priority queue is moved and consumed, allowing
+    /// for a `O(1)` iterator setup. The retrieval of an element takes `O(log N)`
+    /// for a queue of `N` elements.
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter { q: self }
+    }
+}
+
+
+pub struct Iter<'lt, E, W> where W : Ord + Copy {
+    q: PQueue<&'lt (E, W), W>
+}
+
+
+impl<'lt, E, W> Iterator for Iter<'lt, E, W> where W : Ord + Copy {
+    type Item = &'lt (E, W);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.q.poll_elem()
+    }
+}
+
+
+pub struct IntoElemIter<E, W> where W : Ord + Copy {
+    q: PQueue<E, W>
+}
+
+impl<E, W> Iterator for IntoElemIter<E, W> where W : Ord + Copy {
+    type Item = E;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.q.poll_elem()
+    }
+}
+
+
+pub struct ElemIter<'lt, E, W> where W : Ord + Copy {
+    q: PQueue<&'lt E, W>
+}
+
+
+impl<'lt, E, W> Iterator for ElemIter<'lt, E, W> where W : Ord + Copy {
+    type Item = &'lt E;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.q.poll_elem()
+    }
+}
+
+
+impl<E, W> DisplayNamed for PQueue<E, W> where E : DisplayNamed, W : DisplayNamed + Ord + Copy {
+    fn fmt_named(&self, f: &mut std::fmt::Formatter<'_>, names: &crate::fmt::NameTable) -> std::fmt::Result {
+        DisplayNamed::fmt_named(&self.tree, f, names)
+    }
+}
+
+impl<E, W> Debug for PQueue<E, W> where E : Debug, W : Debug + Ord + Copy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.tree, f)
+    }
+}
+
+impl<E, W> PartialEq for PQueue<E, W> where E : PartialEq, W : PartialEq + Ord + Copy {
+    fn eq(&self, other: &Self) -> bool {
+        self.tree == other.tree
+    }
+}
+
+impl<E, W> Eq for PQueue<E, W> where E : Eq, W : Eq + Ord + Copy {
+}
+
+impl<E, W> Clone for PQueue<E, W> where E : Clone, W : Clone + Ord + Copy {
+    fn clone(&self) -> Self {
+        Self { tree: self.tree.clone() }
+    }
+}
+
+impl<E, W> Hash for PQueue<E, W> where E : Hash, W : Hash + Ord + Copy {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.tree.hash(state);
+    }
+}
+
+impl<E, W> Default for PQueue<E, W> where W : Ord + Copy {
+    fn default() -> Self {
+        Self { tree: Default::default() }
+    }
+}
+

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::rc::Rc;
 
 use rsplib::nf::Clause;
-use rsplib::res::ClauseDatabase;
+use rsplib::res::KnowledgeBase;
 use rsplib::test::TestContext;
 
 fn pairs(ctx: &mut TestContext, v: Vec<(&str, &str)>) -> BTreeSet<(Rc<Clause>, Rc<Clause>)> {
@@ -19,7 +19,7 @@ fn pairs(ctx: &mut TestContext, v: Vec<(&str, &str)>) -> BTreeSet<(Rc<Clause>, R
 fn test_1() {
     let mut ctx = TestContext::new();
 
-    let mut db = ClauseDatabase::new();
+    let mut db = KnowledgeBase::new();
 
     db.learn(ctx.clause("P(:x) | P(a) | Q(a)"));
     db.learn(ctx.clause("!P(:x)"));

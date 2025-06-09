@@ -1,5 +1,15 @@
-use rsplib::res::{find_resolvee, Resolvee};
+use std::collections::BTreeSet;
+use std::fmt::Debug;
+
+use rsplib::res::{find_resolvees, Resolvee};
 use rsplib::test::TestContext;
+
+fn assert_eq_unordered<T>(a: Vec<T>, b: Vec<T>) where T : Ord + Debug {
+    let a_set = BTreeSet::from_iter(a);
+    let b_set = BTreeSet::from_iter(b);
+
+    assert_eq!(a_set, b_set);
+}
 
 #[test]
 fn unifies_1() {
@@ -9,17 +19,19 @@ fn unifies_1() {
     let a = ctx.clause("P(:x) | Q(:x)");
     let b = ctx.clause("!P(a)");
     
-    let expect = Some(Resolvee {
+    let expect = vec![Resolvee {
         a: ctx.atom("P(:x)"),
         b: ctx.atom("P(a)"),
+        a_neg: false,
+        b_neg: true,
         mgu: ctx.mgu([
             ("x", "a")
         ])
-    });
+    }];
 
-    let actual = find_resolvee(&a, &b);
+    let actual = find_resolvees(&a, &b);
 
-    assert_eq!(expect, actual)
+    assert_eq_unordered(expect, actual)
 }
 
 #[test]
@@ -30,15 +42,17 @@ fn unifies_2() {
     let a = ctx.clause("P(a) | Q");
     let b = ctx.clause("!P(a)");
     
-    let expect = Some(Resolvee {
+    let expect = vec![Resolvee {
         a: ctx.atom("P(a)"),
         b: ctx.atom("P(a)"),
+        a_neg: false,
+        b_neg: true,
         mgu: ctx.mgu([])
-    });
+    }];
 
-    let actual = find_resolvee(&a, &b);
+    let actual = find_resolvees(&a, &b);
 
-    assert_eq!(expect, actual)
+    assert_eq_unordered(expect, actual)
 }
 
 #[test]
@@ -49,18 +63,20 @@ fn unifies_3() {
     let a = ctx.clause("P(:x, :y) | Q(:x)");
     let b = ctx.clause("!P(f(:y), a()) | R(:x)");
     
-    let expect = Some(Resolvee {
+    let expect = vec![Resolvee {
         a: ctx.atom("P(:x, :y)"),
         b: ctx.atom("P(f(:y), a)"),
+        a_neg: false,
+        b_neg: true,
         mgu: ctx.mgu([
             ("x", "f(a)"),
             ("y", "a")
         ])
-    });
+    }];
 
-    let actual = find_resolvee(&a, &b);
+    let actual = find_resolvees(&a, &b);
 
-    assert_eq!(expect, actual)
+    assert_eq_unordered(expect, actual)
 }
 
 #[test]
@@ -71,17 +87,85 @@ fn unifies_4() {
     let a = ctx.clause("P(a)");
     let b = ctx.clause("!P(:x) | P(a) | P(:y)");
     
-    let expect = Some(Resolvee {
+    let expect = vec![Resolvee {
         a: ctx.atom("P(a)"),
         b: ctx.atom("P(:x)"),
+        a_neg: false,
+        b_neg: true,
         mgu: ctx.mgu([
             ("x", "a")
         ])
-    });
+    }];
 
-    let actual = find_resolvee(&a, &b);
+    let actual = find_resolvees(&a, &b);
 
-    assert_eq!(expect, actual)
+    assert_eq_unordered(expect, actual)
+}
+
+#[test]
+fn unifies_5() {
+    let mut ctx = TestContext::new();
+
+    // Unifies: both P(:x),P(a) and P(a),P(a) can unify
+    let a = ctx.clause("P(:x) | P(a)");
+    let b = ctx.clause("!P(a)");
+    
+    let expect: Vec<Resolvee> = vec![
+        Resolvee {
+            a: ctx.atom("P(:x)"),
+            b: ctx.atom("P(a)"),
+            a_neg: false,
+            b_neg: true,
+            mgu: ctx.mgu([
+                ("x", "a")
+            ])
+        },
+        Resolvee {
+            a: ctx.atom("P(a)"),
+            b: ctx.atom("P(a)"),
+            a_neg: false,
+            b_neg: true,
+            mgu: ctx.mgu([])
+        }
+    ];
+
+    let actual = find_resolvees(&a, &b);
+
+    assert_eq_unordered(expect, actual)
+}
+
+#[test]
+fn unifies_6() {
+    let mut ctx = TestContext::new();
+
+    // Unifies: both P(a),P(:x) and Q(:x),Q(a) can unify
+    let a = ctx.clause("P(a) | !Q(:x)");
+    let b = ctx.clause("!P(:x) | Q(a)");
+    
+    let expect: Vec<Resolvee> = vec![
+        Resolvee {
+            a: ctx.atom("P(a)"),
+            b: ctx.atom("P(:x)"),
+            a_neg: false,
+            b_neg: true,
+            mgu: ctx.mgu([
+                ("x", "a")
+            ])
+        },
+        Resolvee {
+            a: ctx.atom("Q(:x)"),
+            b: ctx.atom("Q(a)"),
+            a_neg: true,
+            b_neg: false,
+            mgu: ctx.mgu([
+                ("x", "a")
+            ])
+        },
+    ];
+
+    let actual = find_resolvees(&a, &b);
+
+    assert_eq_unordered(expect, actual)
 }
 
 #[test]
@@ -92,11 +176,11 @@ fn does_not_unify_1() {
     let a = ctx.clause("Q(:x)");
     let b = ctx.clause("!P(a)");
     
-    let expect = None;
+    let expect: Vec<Resolvee> = vec![];
 
-    let actual = find_resolvee(&a, &b);
+    let actual = find_resolvees(&a, &b);
 
-    assert_eq!(expect, actual)
+    assert_eq_unordered(expect, actual)
 }
 
 #[test]
@@ -107,11 +191,11 @@ fn does_not_unify_2() {
     let a = ctx.clause("P(b)");
     let b = ctx.clause("!P(a)");
     
-    let expect = None;
+    let expect: Vec<Resolvee> = vec![];
 
-    let actual = find_resolvee(&a, &b);
+    let actual = find_resolvees(&a, &b);
 
-    assert_eq!(expect, actual)
+    assert_eq_unordered(expect, actual)
 }
 
 #[test]
@@ -122,54 +206,9 @@ fn does_not_unify_3() {
     let a = ctx.clause("P(:x)");
     let b = ctx.clause("P(a)");
     
-    let expect = None;
+    let expect: Vec<Resolvee> = vec![];
 
-    let actual = find_resolvee(&a, &b);
+    let actual = find_resolvees(&a, &b);
 
-    assert_eq!(expect, actual)
-}
-
-#[test]
-fn does_not_unify_4() {
-    let mut ctx = TestContext::new();
-
-    // Does not unify: both P(:x),P(a) and P(a),P(a) can unify
-    let a = ctx.clause("P(:x) | P(a)");
-    let b = ctx.clause("!P(a)");
-    
-    let expect = None;
-
-    let actual = find_resolvee(&a, &b);
-
-    assert_eq!(expect, actual)
-}
-
-#[test]
-fn does_not_unify_5() {
-    let mut ctx = TestContext::new();
-
-    // Does not unify: both P(a),P(:x) and P(a),P(a) can unify
-    let a = ctx.clause("!P(a)");
-    let b = ctx.clause("P(:x) | P(a)");
-    
-    let expect = None;
-
-    let actual = find_resolvee(&a, &b);
-
-    assert_eq!(expect, actual)
-}
-
-#[test]
-fn does_not_unify_6() {
-    let mut ctx = TestContext::new();
-
-    // Does not unify: both P(a),P(:x) and Q(:x),Q(a) can unify
-    let a = ctx.clause("P(a) | Q(:x)");
-    let b = ctx.clause("P(:x) | Q(a)");
-    
-    let expect = None;
-
-    let actual = find_resolvee(&a, &b);
-
-    assert_eq!(expect, actual)
+    assert_eq_unordered(expect, actual)
 }

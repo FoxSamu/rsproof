@@ -1,5 +1,9 @@
-mod clause;
-mod database;
+mod kb;
+mod resolvee;
+mod resolver;
+mod heuristic;
 
-pub use clause::*;
-pub use database::*;
+pub use resolvee::*;
+pub use kb::*;
+pub use resolver::*;
+pub use heuristic::*;
