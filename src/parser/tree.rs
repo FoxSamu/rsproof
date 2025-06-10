@@ -90,8 +90,8 @@ impl ExpNode {
         let res = match self.tree {
             // ExpTree::Num(val) => AExpr::num(Self::parse_nr(&val, range)?),
 
-            ExpTree::Ident(name) => nc.resolve_bound(&name).map(|it| AExpr::bound(it)).unwrap_or_else(|| AExpr::unbound(nc.resolve_static(name))),
-            ExpTree::Bound(name) => AExpr::bound(nc.resolve_static(name)),
+            ExpTree::Ident(name) => nc.resolve_bound(&name).map(|it| AExpr::var(it)).unwrap_or_else(|| AExpr::con(nc.resolve_static(name))),
+            ExpTree::Global(name) => AExpr::var(nc.resolve_static(name)),
 
             ExpTree::Fun(name, args) => AExpr::fun(nc.resolve_static(name), Self::as_aexprs(args, nc)?),
 
@@ -119,32 +119,32 @@ impl ExpNode {
         return Ok(out);
     }
 
-    // /// Expands a quantifier into a recursive boolean expression. E.g. it turns `all a, b, c:` into `all a: all b: all c:`.
-    // fn expand_quant(q: Quant, names: Vec<String>, rhs: Box<ExpNode>, nc: &mut NameContext) -> ParseResult<BExpr> {
-    //     let name_count = names.len();
+    /// Expands a quantifier into a recursive boolean expression. E.g. it turns `all a, b, c:` into `all a: all b: all c:`.
+    fn expand_quant(q: Quant, names: Vec<String>, rhs: Box<ExpNode>, nc: &mut NameContext) -> ParseResult<BExpr> {
+        let name_count = names.len();
 
-    //     let mut mapped_names = Vec::new();
-    //     for name in names {
-    //         mapped_names.push(nc.enter(name));
-    //     }
+        let mut mapped_names = Vec::new();
+        for name in names {
+            mapped_names.push(nc.enter(name));
+        }
         
-    //     let mut exp = rhs.as_bexpr(nc)?;
+        let mut exp = rhs.as_bexpr(nc)?;
 
-    //     while let Some(name) = mapped_names.pop() {
-    //         exp = match q {
-    //             Quant::All => BExpr::all(name, exp),
-    //             Quant::Exists => BExpr::exists(name, exp),
-    //             Quant::No => BExpr::no(name, exp)
-    //         }
-    //     }
+        while let Some(name) = mapped_names.pop() {
+            exp = match q {
+                Quant::All => BExpr::all(name, exp),
+                Quant::Some => BExpr::some(name, exp),
+                Quant::No => BExpr::no(name, exp)
+            }
+        }
 
 
-    //     for _ in 0..name_count {
-    //         nc.leave();
-    //     }
+        for _ in 0..name_count {
+            nc.leave();
+        }
 
-    //     Ok(exp)
-    // }
+        Ok(exp)
+    }
 
     /// Parses the given expression node as a boolean expression
     pub fn as_bexpr(self, nc: &mut NameContext) -> ParseResult<BExpr> {
@@ -174,7 +174,7 @@ impl ExpNode {
             ExpTree::BinOp(BinOp::RevIm, lhs, rhs) => BExpr::revim(lhs.as_bexpr(nc)?, rhs.as_bexpr(nc)?),
             ExpTree::BinOp(BinOp::Equiv, lhs, rhs) => BExpr::equiv(lhs.as_bexpr(nc)?, rhs.as_bexpr(nc)?),
 
-            // ExpTree::Quant(q, names, rhs) => Self::expand_quant(q, names, rhs, nc)?,
+            ExpTree::Quant(q, names, rhs) => Self::expand_quant(q, names, rhs, nc)?,
 
             _ => range.error("Not a boolean expression")?,
         };
@@ -204,7 +204,7 @@ pub enum UnOp {
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Quant {
     All,
-    Exists,
+    Some,
     No
 }
 
@@ -218,7 +218,7 @@ pub enum ExpTree {
     Ident(String),
 
     /// A variable or symbol
-    Bound(String),
+    Global(String),
 
     /// The `True` boolean literal
     True,

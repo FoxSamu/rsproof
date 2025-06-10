@@ -91,7 +91,7 @@ impl<I> Lexer<I> where I : Iterator<Item = char> {
         let kind = match ident.as_str() {
             // Keywords
             "all" => TKind::All,
-            "exists" => TKind::Exists,
+            "some" => TKind::Some,
             "no" => TKind::No,
             "let" => TKind::Let,
             "prove" => TKind::Prove,

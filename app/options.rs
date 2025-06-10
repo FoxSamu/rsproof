@@ -4,6 +4,13 @@ use std::{fs, io};
 
 use rsplib::util::trires::{TriRes, TriResult};
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub enum Verbosity {
+    Quiet,
+    Normal,
+    Verbose
+}
+
 pub enum InputSource {
     Raw(String),
     File(String),
@@ -22,7 +29,7 @@ impl InputSource {
 
 pub enum RunMode {
     Legacy(bool),
-    Prove(InputSource),
+    Prove(InputSource, (bool, usize, Verbosity)),
     Mgu(InputSource),
     Help,
     Error(String)
@@ -94,7 +101,7 @@ impl OptsParser {
 
     fn input_source(&mut self) -> TriResult<InputSource, String> {
         match self.next_str() {
-            Some("-i") => {
+            Some("-i") | Some("--stdin") => {
                 self.shift();
 
                 if self.had_stdin_input {
@@ -106,13 +113,13 @@ impl OptsParser {
                 Ok(InputSource::Stdin)
             },
 
-            Some("-f") => {
+            Some("-f") | Some("--file") => {
                 self.shift();
 
                 Ok(InputSource::File(self.string().with_error("Expected filename".into())?))
             },
 
-            Some("-r") => {
+            Some("-r") | Some("--raw") => {
                 self.shift();
 
                 Ok(InputSource::Raw(self.string().with_error("Expected input".into())?))
@@ -138,6 +145,93 @@ impl OptsParser {
         }
     }
 
+    fn verbosity(&mut self) -> TriResult<Verbosity, String> {
+        match self.next_str() {
+            Some("-v") | Some("--verbose") => {
+                self.shift();
+
+                Ok(Verbosity::Verbose)
+            },
+            Some("-q") | Some("--quiet") => {
+                self.shift();
+
+                Ok(Verbosity::Quiet)
+            },
+
+            _ => {
+                Err(None)
+            },
+        }
+    }
+
+    fn tseitin(&mut self) -> TriResult<bool, String> {
+        match self.next_str() {
+            Some("-t") | Some("--tseitin") => {
+                self.shift();
+
+                Ok(true)
+            },
+
+            Some("--equiv") => {
+                self.shift();
+
+                Ok(false)
+            },
+
+            _ => {
+                Err(None)
+            },
+        }
+    }
+
+    fn max_steps(&mut self) -> TriResult<usize, String> {
+        match self.next_str() {
+            Some("-s") | Some("--steps") => {
+                self.shift();
+                if let Some(s) = self.next_str().and_then(|e| e.parse::<usize>().ok()) {
+                    Ok(s)
+                } else {
+                    Err(None).with_error(format!("Usage of -s: `-s <number>`"))
+                }
+            }
+            _ => Err(None),
+        }
+    }
+
+    fn prove_options(&mut self) -> TriResult<(bool, usize, Verbosity), String> {
+        let mut tseitin = false;
+        let mut steps = 0usize;
+        let mut verbosity = Verbosity::Normal;
+
+        loop {
+            match self.tseitin() {
+                Ok(t) => {
+                    tseitin = t;
+                },
+                Err(None) => {},
+                Err(Some(e)) => return Err(Some(e)),
+            }
+
+            match self.max_steps() {
+                Ok(t) => {
+                    steps = t;
+                },
+                Err(None) => {},
+                Err(Some(e)) => return Err(Some(e)),
+            }
+
+            match self.verbosity() {
+                Ok(t) => {
+                    verbosity = t;
+                },
+                Err(None) => {},
+                Err(Some(e)) => return Err(Some(e)),
+            }
+
+            break Ok((tseitin, steps, verbosity))
+        }
+    }
+
     fn run_mode(&mut self) -> TriResult<RunMode, String> {
         match self.next_str() {
             Some("legacy") => {
@@ -151,7 +245,8 @@ impl OptsParser {
                 self.shift();
 
                 Ok(RunMode::Prove(
-                    self.input_source().with_error(format!("Usage: `{} prove (-i | -f <filename> | [-r] <raw_input>)`", self.base_command))?
+                    self.input_source().with_error(format!("Usage: `{} prove (-i | -f <filename> | [-r] <raw_input>) [<options>]`", self.base_command))?,
+                    self.prove_options()?
                 ))
             },
             Some("mgu") => {

@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::fmt::Display;
 use std::mem::replace;
 use std::rc::Rc;
@@ -132,6 +132,12 @@ impl<N> Names for Option<N> where N : Names {
 }
 
 impl<N> Names for Vec<N> where N : Names {
+    fn names<A>(&self) -> A where A : FromIterator<Name> {
+        self.into_iter().flat_map(|it| it.names::<Vec<_>>()).collect()
+    }
+}
+
+impl<N> Names for VecDeque<N> where N : Names {
     fn names<A>(&self) -> A where A : FromIterator<Name> {
         self.into_iter().flat_map(|it| it.names::<Vec<_>>()).collect()
     }

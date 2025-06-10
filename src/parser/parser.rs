@@ -181,6 +181,10 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     pub fn base_exp(&mut self) -> ParseResult<ExpNode> {
         let from = self.pos();
 
+        if let Ok(q_exp) = self.q_exp() {
+            return Ok(q_exp);
+        }
+
         if let Ok(op) = self.unary_op() {
             let exp = Self::expect(self.unary_exp(), "unary_exp")?;
 
@@ -230,7 +234,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
 
             return Ok(ExpNode { 
                 from, to: self.pos(),
-                tree: ExpTree::Bound(ident)
+                tree: ExpTree::Global(ident)
             });
         }
 
@@ -440,8 +444,8 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
         if let Ok(_) = self.lit(TKind::All) {
             return Ok(Quant::All);
         }
-        if let Ok(_) = self.lit(TKind::Exists) {
-            return Ok(Quant::Exists);
+        if let Ok(_) = self.lit(TKind::Some) {
+            return Ok(Quant::Some);
         }
         if let Ok(_) = self.lit(TKind::No) {
             return Ok(Quant::No);
@@ -479,7 +483,7 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
         let quant = self.quant()?;
         let names = Self::expect(self.names(), "names")?;
         Self::expect(self.lit(TKind::Colon), "Colon")?;
-        let exp = Self::expect(self.exp(), "exp")?;
+        let exp = Self::expect(self.base_exp(), "base_exp")?;
 
         return Ok(ExpNode {
             from, to: self.pos(),
@@ -494,10 +498,6 @@ impl<I> Parser<I> where I : Iterator<Item = char> {
     ///   | p_exp(Or)
     /// ```
     pub fn exp(&mut self) -> ParseResult<ExpNode> {
-        if let Ok(quant) = self.q_exp() {
-            return Ok(quant);
-        }
-
         self.p_exp(Precedence::Or)
     }
 

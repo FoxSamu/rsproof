@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -25,11 +25,11 @@ pub enum AExpr {
 
 
 impl AExpr {
-    pub fn unbound(name: Name) -> AExpr {
+    pub fn con(name: Name) -> AExpr {
         AExpr::Fun(name, vec![])
     }
     
-    pub fn bound(name: Name) -> AExpr {
+    pub fn var(name: Name) -> AExpr {
         AExpr::Var(name)
     }
     
@@ -142,6 +142,12 @@ impl<N> Vars for Option<N> where N : Vars {
 }
 
 impl<N> Vars for Vec<N> where N : Vars {
+    fn vars<A>(&self) -> A where A : FromIterator<Name> {
+        self.into_iter().flat_map(|it| it.vars::<Vec<_>>()).collect()
+    }
+}
+
+impl<N> Vars for VecDeque<N> where N : Vars {
     fn vars<A>(&self) -> A where A : FromIterator<Name> {
         self.into_iter().flat_map(|it| it.vars::<Vec<_>>()).collect()
     }

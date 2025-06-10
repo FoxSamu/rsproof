@@ -69,3 +69,9 @@ impl Display for Stmt {
         Display::fmt(&self.with_table(&NameTable::new()), f)
     }
 }
+
+impl Into<(Vec<BExpr>, Vec<BExpr>)> for Stmt {
+    fn into(self) -> (Vec<BExpr>, Vec<BExpr>) {
+        (self.premises, self.conclusions)
+    }
+}

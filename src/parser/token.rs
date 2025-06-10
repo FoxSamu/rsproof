@@ -24,7 +24,7 @@ pub enum TKind {
     All,
 
     /// Keyword `exists`
-    Exists,
+    Some,
 
     /// Keyword `no`
     No,

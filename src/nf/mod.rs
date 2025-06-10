@@ -12,12 +12,13 @@ pub type Clauses = BTreeSet<Clause>;
 
 
 /// Module for converting expressions to equivalent CNF/DNF.
-#[allow(dead_code)]
 mod equiv_nf;
 
 /// Module for converting expressions to Tseitin DNF/CNF (an equisatisfiable but inequivalent DNF/CNF).
-#[allow(dead_code)]
 mod tseitin_nf;
+
+/// Module for converting expressions to Tseitin DNF/CNF (an equisatisfiable but inequivalent DNF/CNF).
+mod skolemise;
 
 /// Module for atom indexing.
 mod index;
@@ -266,7 +267,7 @@ impl NormalForm {
     /// properties. Finding an equivalent CNF is an NP-hard problem, this
     /// operation will take `O(2^n)` time and space complexity.
     pub fn equiv_cnf(expr: BExpr) -> NormalForm {
-        equiv_nf::cnf(expr).into()
+        equiv_nf::cnf(skolemise::skolemise(expr)).into()
     }
 
     /// Computes an equivalent Disjunctive Normal Form. It does this by
@@ -274,7 +275,7 @@ impl NormalForm {
     /// properties. Finding an equivalent DNF is an NP-hard problem, this
     /// operation will take `O(2^n)` time and space complexity.
     pub fn equiv_dnf(expr: BExpr) -> NormalForm {
-        equiv_nf::dnf(expr).into()
+        equiv_nf::dnf(skolemise::skolemise(expr)).into()
     }
 
     /// Computes an equisatisfiable, but not equivalent, Conjunctive Normal Form.
@@ -283,7 +284,7 @@ impl NormalForm {
     /// transformation is a P problem, this operation will take `O(n)` time and
     /// space complexity.
     pub fn tseitin_cnf(expr: BExpr) -> NormalForm {
-        tseitin_nf::cnf(expr).into()
+        tseitin_nf::cnf(skolemise::skolemise(expr)).into()
     }
 
     /// Computes an equisatisfiable, but not equivalent, Disjunctive Normal Form.
@@ -292,7 +293,7 @@ impl NormalForm {
     /// transformation is a P problem, this operation will take `O(n)` time and
     /// space complexity.
     pub fn tseitin_dnf(expr: BExpr) -> NormalForm {
-        tseitin_nf::dnf(expr).into()
+        tseitin_nf::dnf(skolemise::skolemise(expr)).into()
     }
 }
 

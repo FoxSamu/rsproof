@@ -59,6 +59,10 @@ fn remove_true_false(expr: BExpr) -> BExpr {
             };
         },
 
+        BExpr::All(_, _) | BExpr::Some(_, _) => {
+            panic!("Expression not Skolemised")
+        },
+
         e => e
     }
 }
@@ -124,7 +128,11 @@ impl Tseitin {
 
             BExpr::Not(rhs) => TseitinOperator::Inv(
                 self.assign(*rhs.clone())
-            )
+            ),
+
+            BExpr::All(_, _) | BExpr::Some(_, _) => {
+                panic!("Expression not Skolemised")
+            },
         };
 
         let assignment = TseitinAssignment {

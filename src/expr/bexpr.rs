@@ -45,6 +45,12 @@ pub enum BExpr {
     /// The inverse of a Boolean subexpression. The inverse if true if and only if its subexpression is
     /// false. The subexpression is a [BExpr], boxed to satisfy Rust's memory requirements.
     Not(Box<BExpr>),
+
+    /// A statement quantified by universal quantification
+    All(Name, Box<BExpr>),
+
+    /// A statement quantified by existential quantification
+    Some(Name, Box<BExpr>),
 }
 
 
@@ -88,6 +94,44 @@ impl BExpr {
         let lhs2 = lhs.clone();
         let rhs2 = rhs.clone();
         (lhs | !rhs) & (!lhs2 | rhs2)
+    }
+
+    pub fn all(name: Name, rhs: BExpr) -> BExpr {
+        BExpr::All(name, Box::new(rhs))
+    }
+
+    pub fn some(name: Name, rhs: BExpr) -> BExpr {
+        BExpr::Some(name, Box::new(rhs))
+    }
+
+    pub fn no(name: Name, rhs: BExpr) -> BExpr {
+        !BExpr::some(name, rhs)
+    }
+
+
+    /// Tests whether this [BExpr] is quantifier-free, that is, whether this [BExpr]
+    /// contains no quantifiers.
+    pub fn is_quantifier_free(&self) -> bool {
+        match self {
+            BExpr::True => true,
+            BExpr::False => true,
+            BExpr::Pred(_, _) => true,
+
+            BExpr::And(lhs, rhs) => lhs.is_quantifier_free() && rhs.is_quantifier_free(),
+            BExpr::Or(lhs, rhs) => lhs.is_quantifier_free() && rhs.is_quantifier_free(),
+            BExpr::Not(rhs) => rhs.is_quantifier_free(),
+
+            // These are the culprits
+            BExpr::All(_, _) => false,
+            BExpr::Some(_, _) => false,
+        }
+    }
+
+    /// Tests whether this [BExpr] is a sentence, that is, whether it contains no
+    /// unbound variables.
+    pub fn is_sentence(&self) -> bool {
+        let vars: Vec<_> = self.vars();
+        vars.is_empty()
     }
 }
 
@@ -142,6 +186,9 @@ impl Names for BExpr {
             BExpr::And(lhs, rhs) => (lhs, rhs).names(),
             BExpr::Or(lhs, rhs) => (lhs, rhs).names(),
             BExpr::Not(rhs) => rhs.names(),
+
+            BExpr::All(name, rhs) => (name, rhs).names(),
+            BExpr::Some(name, rhs) => (name, rhs).names(),
         }
     }
 }
@@ -154,6 +201,33 @@ impl Vars for BExpr {
             BExpr::And(lhs, rhs) => (lhs, rhs).vars(),
             BExpr::Or(lhs, rhs) => (lhs, rhs).vars(),
             BExpr::Not(rhs) => rhs.vars(),
+
+            // Bound variables don't count as unbound variables
+            BExpr::All(name, rhs) | BExpr::Some(name, rhs) => {
+                let mut vars = rhs.vars::<Vec<_>>();
+
+                vars.retain(|e| e != name);
+                vars.into_iter().collect()
+            }
+        }
+    }
+
+    fn has_var(&self, v: &Name) -> bool {
+        match self {
+            BExpr::True | BExpr::False => false,
+            BExpr::Pred(_, args) => args.has_var(v),
+            BExpr::And(lhs, rhs) => lhs.has_var(v) || rhs.has_var(v),
+            BExpr::Or(lhs, rhs) => lhs.has_var(v) || rhs.has_var(v),
+            BExpr::Not(rhs) => rhs.has_var(v),
+
+            // Bound variables don't count as unbound variables
+            BExpr::All(name, rhs) | BExpr::Some(name, rhs) => {
+                if v == name {
+                    false
+                } else {
+                    rhs.has_var(v)
+                }
+            }
         }
     }
 }
@@ -166,7 +240,16 @@ impl Unifiable for BExpr {
             BExpr::Pred(name, args) => BExpr::Pred(name, args.unify(unifier)),
             BExpr::And(lhs, rhs) => BExpr::And(lhs.unify(unifier), rhs.unify(unifier)),
             BExpr::Or(lhs, rhs) => BExpr::Or(lhs.unify(unifier), rhs.unify(unifier)),
-            BExpr::Not(rhs) => BExpr::Not(rhs.unify(unifier))
+            BExpr::Not(rhs) => BExpr::Not(rhs.unify(unifier)),
+
+            // The name a quantifier binds to redefines what that variable means - it is essentially
+            // not a variable anymore. To counteract that the unifier unifies the newly bound variable,
+            // we create a copy unifier that does not have the substitution for that variable.
+            //
+            // This is not very efficient since we're copying the whole unifier, but the best we can do.
+            // If all goes well, we should not be unifying BExprs anyway.
+            BExpr::All(name, rhs) => BExpr::All(name, rhs.unify(&unifier.clone_without(&name))),
+            BExpr::Some(name, rhs) => BExpr::Some(name, rhs.unify(&unifier.clone_without(&name))),
         }
     }
     
@@ -177,7 +260,7 @@ impl Unifiable for BExpr {
             (BExpr::True, BExpr::True) => true,
             (BExpr::False, BExpr::False) => true,
 
-            // We cannot find MGUs between boolean operators
+            // We cannot find MGUs between boolean operators or quantifiers
             _ => false
         }
     }
@@ -213,7 +296,13 @@ impl DisplayNamed for BExpr {
             },
             BExpr::Not(rhs) => {
                 write!(f, "!({})", rhs.with_table(names))?;
-            }
+            },
+            BExpr::All(name, rhs) => {
+                write!(f, "all {}: ({})", name.with_table(names), rhs.with_table(names))?;
+            },
+            BExpr::Some(name, rhs) => {
+                write!(f, "some {}: ({})", name.with_table(names), rhs.with_table(names))?;
+            },
         }
 
         Ok(())

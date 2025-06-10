@@ -66,6 +66,19 @@ impl Unifier {
         Ok(())
     }
 
+    pub fn remove(&mut self, name: &Name) -> bool {
+        self.table.remove(name).is_some()
+    }
+
+    pub fn without(mut self, name: &Name) -> Self {
+        self.remove(name);
+        self
+    }
+
+    pub fn clone_without(&self, name: &Name) -> Self {
+        self.clone().without(name)
+    }
+
     /// Unifies the given [Name] to an [AExpr] as defined by this unifier. The given name is said to be the name
     /// of a bound variable, which could be unified. If the unifier has a substitution for this name, said substitution
     /// is cloned and returned. Otherwise, it generates a [variable expression][AExpr::Var] with the given name.

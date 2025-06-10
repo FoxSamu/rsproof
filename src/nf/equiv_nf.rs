@@ -112,6 +112,10 @@ pub fn cnf(e: BExpr) -> Clauses {
         BExpr::And(lhs, rhs) => concat(cnf(*lhs), cnf(*rhs)),
         BExpr::Or(lhs, rhs) => distribute(cnf(*lhs), cnf(*rhs)),
         BExpr::Not(rhs) => invert(dnf(*rhs)),
+
+        _ => {
+            panic!("Expression not Skolemised")
+        },
     }
 }
 
@@ -124,5 +128,9 @@ pub fn dnf(e: BExpr) -> Clauses {
         BExpr::And(lhs, rhs) => distribute(dnf(*lhs), dnf(*rhs)),
         BExpr::Or(lhs, rhs) => concat(dnf(*lhs), dnf(*rhs)),
         BExpr::Not(rhs) => invert(cnf(*rhs)),
+
+        _ => {
+            panic!("Expression not Skolemised")
+        },
     }
 }
