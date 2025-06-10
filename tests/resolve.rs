@@ -10,7 +10,8 @@ fn assert_proven(ctx: &mut TestContext, mut resolver: Resolver) {
     match proof {
         Some(ResolverResult {
             proof: Proof::Proven(deductions),
-            deductions_made: n
+            deductions_made: n,
+            learning_order: _
         }) => {
             let mut line = 0usize;
 
@@ -25,7 +26,8 @@ fn assert_proven(ctx: &mut TestContext, mut resolver: Resolver) {
 
         Some(ResolverResult {
             proof: Proof::Disproven,
-            deductions_made: _
+            deductions_made: _,
+            learning_order: _
         }) => {
             panic!("Disproven");
         },

@@ -1,4 +1,4 @@
-use crate::expr::{AExpr, BExpr, Name};
+use crate::expr::{AExpr, BExpr, Name, Stmt};
 use crate::fmt::DisplayNamed;
 use crate::nf::{Atom, Clause, NormalForm};
 use crate::parser::ParseContext;
@@ -24,6 +24,14 @@ impl TestContext {
 
     pub fn display<D>(&self, elem: D) where D : DisplayNamed {
         println!("{}", elem.with_table(self.pc.name_table()))
+    }
+
+    pub fn stmt(&mut self, str: &str) -> Stmt {
+        self.pc.stmt(str).unwrap()
+    }
+
+    pub fn stmts<const N: usize>(&mut self, str: [&str; N]) -> Vec<Stmt> {
+        str.into_iter().map(|e| self.stmt(e)).collect()
     }
 
     pub fn aexpr(&mut self, str: &str) -> AExpr {

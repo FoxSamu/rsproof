@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use rsplib::expr::{BExpr, Stmt};
+use rsplib::expr::Stmt;
 use rsplib::fmt::DisplayNamed;
 use rsplib::nf::NormalForm;
 use rsplib::parser::{Output, ParseContext};
@@ -15,18 +15,6 @@ fn try_parse(input: InputSource) -> Result<Output<Stmt>, String> {
     ParseContext::new().stmt_output(input).map_err(|err| format!("{err}"))
 }
 
-fn to_conj(mut expr: Vec<BExpr>) -> BExpr {
-    if let Some(mut e) = expr.pop() {
-        while let Some(n) = expr.pop() {
-            e = e & n
-        }
-
-        e
-    } else {
-        BExpr::True
-    }
-}
-
 pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verbosity) -> ExitCode {
     let Output { result, name_table } = match try_parse(input) {
         Ok(ok) => ok,
@@ -37,13 +25,8 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
         },
     };
 
-    let (premises, conclusions) = result.into();
-
-    let premises = to_conj(premises);
-    let conclusions = to_conj(conclusions);
-
     // Statement
-    let stmt = premises & !conclusions;
+    let stmt = result.refutable_expr();
     
     // CNF
     let cnf = if tseitin {
@@ -51,7 +34,6 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
     } else {
         NormalForm::equiv_cnf(stmt)
     };
-
 
     // Resolver
     let mut resolver = Resolver::new();
@@ -67,6 +49,10 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
             println!("undec");
 
             if let Verbosity::Verbose = verbosity {
+                println!("Clauses in learning order:");
+                for clause in resolver.stats().learning_order {
+                    println!("  - {}", clause.with_table(&name_table));
+                }
                 println!("No proof found after {max_steps} deductions.");
             }
 
@@ -81,9 +67,6 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
             println!("sat");
 
             if verbosity >= Verbosity::Normal {
-                println!("CNF:");
-                println!("  {}", cnf.with_table(&name_table));
-
                 println!("Refutation proof using resolution:");
 
                 let mut line = 0usize;
@@ -94,6 +77,10 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
             }
 
             if verbosity >= Verbosity::Verbose {
+                println!("Clauses in learning order:");
+                for clause in result.learning_order {
+                    println!("  - {}", clause.with_table(&name_table));
+                }
                 println!("{n} deductions made.");
             }
         },
@@ -102,6 +89,10 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
             println!("unsat");
 
             if verbosity >= Verbosity::Verbose {
+                println!("Clauses in learning order:");
+                for clause in result.learning_order {
+                    println!("  - {}", clause.with_table(&name_table));
+                }
                 println!("{n} deductions made.");
             }
         }

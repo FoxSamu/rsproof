@@ -41,6 +41,36 @@ impl Stmt {
     pub fn into_conclusions(self) -> Vec<BExpr> {
         self.conclusions
     }
+
+    /// Returns a refutable [BExpr] representing this statement, that is, it returns
+    /// an expression whose unsatisfiability proves this statement.
+    pub fn refutable_expr(self) -> BExpr {
+        let p = to_conj(self.premises);
+        let c = to_conj(self.conclusions);
+
+        return p & !c;
+    }
+
+    /// Returns a provable [BExpr] representing this statement, that is, it returns
+    /// an expression whose unsatisfiability disproves this statement.
+    pub fn provable_expr(self) -> BExpr {
+        let p = to_conj(self.premises);
+        let c = to_conj(self.conclusions);
+
+        return p & c;
+    }
+}
+
+fn to_conj(mut expr: Vec<BExpr>) -> BExpr {
+    if let Some(mut e) = expr.pop() {
+        while let Some(n) = expr.pop() {
+            e = e & n
+        }
+
+        e
+    } else {
+        BExpr::True
+    }
 }
 
 impl Names for Stmt {

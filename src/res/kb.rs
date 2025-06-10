@@ -56,13 +56,17 @@ impl KnowledgeBase {
         }
     }
 
-    pub fn learn(&mut self, c: Clause) -> BTreeSet<(Rc<Clause>, Rc<Clause>)> {
+    pub fn learn(&mut self, c: Clause) -> Option<BTreeSet<(Rc<Clause>, Rc<Clause>)>> {
         self.learn_rc(Rc::new(c))
     }
 
     /// Learns a specific clause. The return value is a set of candidates that were freshly
     /// obtained from learning this clause.
-    pub fn learn_rc(&mut self, rc: Rc<Clause>) -> BTreeSet<(Rc<Clause>, Rc<Clause>)> {
+    pub fn learn_rc(&mut self, rc: Rc<Clause>) -> Option<BTreeSet<(Rc<Clause>, Rc<Clause>)>> {
+        if self.clauses.contains(&rc) {
+            return None;
+        }
+
         let mut pos_names = BTreeSet::new();
         let mut neg_names = BTreeSet::new();
 
@@ -117,7 +121,7 @@ impl KnowledgeBase {
             }
         }
 
-        new_candidates
+        Some(new_candidates)
     }
 
     /// Resolves a set of resolution candidates. These candidates are added to the set `out`.
