@@ -10,7 +10,7 @@ fn random_1() {
 
 #[test]
 fn empty() {
-    let mut queue = PQueue::<u64>::new();
+    let mut queue = PQueue::<u64, u64>::new();
 
     assert_eq!(None, queue.poll());
 }

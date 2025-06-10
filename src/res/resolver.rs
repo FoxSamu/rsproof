@@ -5,14 +5,21 @@ use crate::res::Heuristic;
 use crate::res::KnowledgeBase;
 use crate::res::Resolvee;
 use crate::util::pqueue::PQueue;
+use crate::util::pqueue::Weighted;
 
 
 struct Candidate {
     a: Rc<Clause>,
     b: Rc<Clause>,
-    res: Resolvee,
+    resolvee: Resolvee,
     result: Clause,
     heuristic: u64
+}
+
+impl Weighted<u64> for Candidate {
+    fn weight(&self) -> u64 {
+        self.heuristic
+    }
 }
 
 
