@@ -30,6 +30,7 @@ impl InputSource {
 pub enum RunMode {
     Legacy(bool),
     Prove(InputSource, (bool, usize, Verbosity)),
+    Disprove(InputSource, (bool, usize, Verbosity)),
     Mgu(InputSource),
     Help,
     Error(String)
@@ -246,6 +247,14 @@ impl OptsParser {
 
                 Ok(RunMode::Prove(
                     self.input_source().with_error(format!("Usage: `{} prove (-i | -f <filename> | [-r] <raw_input>) [<options>]`", self.base_command))?,
+                    self.prove_options()?
+                ))
+            },
+            Some("disprove") => {
+                self.shift();
+
+                Ok(RunMode::Disprove(
+                    self.input_source().with_error(format!("Usage: `{} disprove (-i | -f <filename> | [-r] <raw_input>) [<options>]`", self.base_command))?,
                     self.prove_options()?
                 ))
             },

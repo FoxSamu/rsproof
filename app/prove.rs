@@ -15,7 +15,7 @@ fn try_parse(input: InputSource) -> Result<Output<Stmt>, String> {
     ParseContext::new().stmt_output(input).map_err(|err| format!("{err}"))
 }
 
-pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verbosity) -> ExitCode {
+pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verbosity, prefer_counterproof: bool) -> ExitCode {
     let Output { result, name_table } = match try_parse(input) {
         Ok(ok) => ok,
         Err(err) => {
@@ -26,7 +26,11 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
     };
 
     // Statement
-    let stmt = result.refutable_expr();
+    let stmt = if prefer_counterproof {
+        result.provable_expr()
+    } else {
+        result.refutable_expr()
+    };
     
     // CNF
     let cnf = if tseitin {
@@ -46,7 +50,7 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
         if let Some(r) = resolver.step_n_times(max_steps) {
             r
         } else {
-            println!("undec");
+            println!("undecided");
 
             if let Verbosity::Verbose = verbosity {
                 println!("Clauses in learning order:");
@@ -64,7 +68,11 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
 
     match result.proof {
         Proof::Proven(deductions) => {
-            println!("sat");
+            if prefer_counterproof {
+                println!("disproven");
+            } else {
+                println!("proven");
+            }
 
             if verbosity >= Verbosity::Normal {
                 println!("Refutation proof using resolution:");
@@ -86,7 +94,7 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
         },
 
         Proof::Disproven => {
-            println!("unsat");
+            println!("exhausted");
 
             if verbosity >= Verbosity::Verbose {
                 println!("Clauses in learning order:");
