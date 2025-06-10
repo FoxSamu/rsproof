@@ -96,6 +96,18 @@ impl Clause {
         self.neg.insert(atom)
     }
 
+    /// Removes an atom from the positive set of this clause. That is, for an atom `A` it
+    /// removes the literal `A` from the clause.
+    pub fn remove_pos(&mut self, atom: &Atom) -> bool {
+        self.pos.remove(atom)
+    }
+
+    /// Removes an atom from the negative set of this clause. That is, for an atom `A` it
+    /// removes the literal `!A` from the clause.
+    pub fn remove_neg(&mut self, atom: &Atom) -> bool {
+        self.neg.remove(atom)
+    }
+
     /// Borrows the positive set from this clause.
     pub fn pos(&self) -> &PredicateIndex {
         &self.pos

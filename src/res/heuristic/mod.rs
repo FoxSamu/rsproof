@@ -3,6 +3,7 @@ use crate::res::heuristic::symbol_count::symbol_count;
 
 mod symbol_count;
 
+#[derive(Clone, Copy, Debug)]
 pub enum Heuristic {
     /// The most naive heuristic. It does not prioritise any clause more than the other.
     Naive,

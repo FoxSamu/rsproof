@@ -1,18 +1,26 @@
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use crate::nf::Clause;
 use crate::res::Heuristic;
+use crate::res::Deduction;
 use crate::res::KnowledgeBase;
+use crate::res::Proof;
 use crate::res::Resolvee;
+use crate::uni::Unifiable;
 use crate::util::pqueue::PQueue;
 use crate::util::pqueue::Weighted;
 
 
+#[derive(Debug)]
 struct Candidate {
+    // These three fields are only used in proofbuilding
     a: Rc<Clause>,
     b: Rc<Clause>,
     resolvee: Resolvee,
-    result: Clause,
+
+    // Result and heuristic are important for resolution
+    result: Rc<Clause>,
     heuristic: u64
 }
 
@@ -24,6 +32,8 @@ impl Weighted<u64> for Candidate {
 
 
 
+
+#[derive(Debug)]
 pub struct Resolver {
     /// The knowledge base, that is, all statements that the resolver currently believes to be true.
     kb: KnowledgeBase,
@@ -32,15 +42,256 @@ pub struct Resolver {
     heuristic: Heuristic,
 
     /// The queue of candidates
-    queue: PQueue<Candidate, u64>
+    queue: PQueue<Candidate, u64>,
+
+    /// Whether the empty clause has been learned
+    empty_clause: Option<Rc<Clause>>,
+
+    /// Premises
+    premises: Vec<Rc<Clause>>,
+
+    /// Candidates that were induced
+    deduced: BTreeMap<Rc<Clause>, Candidate>,
+
+    /// Amount of deductions made
+    deductions_made: usize
 }
 
 impl Resolver {
-    pub fn new(heuristic: Heuristic) -> Self {
+    pub fn new() -> Self {
         Self {
             kb: KnowledgeBase::new(),
-            heuristic,
-            queue: PQueue::new()
+            heuristic: Heuristic::SymbolCount,
+            queue: PQueue::new(),
+            empty_clause: None,
+            premises: Vec::new(),
+            deduced: BTreeMap::new(),
+            deductions_made: 0
+        }
+    }
+
+    /// Sets the heuristic used by the resolver.
+    pub fn set_heuristic(&mut self, heuristic: Heuristic) {
+        self.queue.reassoc_modify(|mut e| {
+            e.heuristic = heuristic.heuristic(&e.result);
+            e
+        });
+
+        self.heuristic = heuristic;
+    }
+
+    /// Assumes a premise.
+    pub fn assume(&mut self, c: Clause) {
+        // In the resolver system we drastically move around and refer to clauses so
+        // the first thing we do as a new clause enters the system is putting it into
+        // a reference counted pointer.
+        let rc = Rc::new(c);
+
+        self.learn(rc.clone());
+
+        // This clause was assumed, it is thus a premise and we put it in the premise
+        // set.
+        self.premises.push(rc);
+    }
+
+    /// Performs at most one resolution step. When a proof or counterproof is found,
+    /// the proof is returned. Otherwise [None] is returned.
+    pub fn step(&mut self) -> Option<Proof> {
+        if self.deduce() {
+            return None;
+        }
+
+        if let Some(empty) = &self.empty_clause {
+            Some(Proof::Proven(self.derive_proof(empty.clone()))) // TODO Generate proof
+        } else {
+            Some(Proof::Disproven)
+        }
+    }
+
+    /// Performs at most `n` resolution steps. When a proof or counterproof is found,
+    /// the proof is returned. Otherwise [None] is returned.
+    pub fn step_n_times(&mut self, mut n: usize) -> Option<Proof> {
+        while n > 0 {
+            if let Some(proof) = self.step() {
+                return Some(proof);
+            }
+
+            n -= 1;
+        }
+
+        None
+    }
+
+    /// Performs resolution steps indefinitely until a proof or counterproof is found.
+    /// Note that due to semidecidability, no counterproof may ever be found and this function
+    /// may iterate indefinitely.
+    pub fn step_indefinitely(&mut self) -> Proof {
+        loop {
+            if let Some(proof) = self.step() {
+                return proof;
+            }
+        }
+    }
+
+    /// Adds a clause to the knowledge base and resolves new candidates from it.
+    fn learn(&mut self, clause: Rc<Clause>) {
+        if clause.is_empty() {
+            self.empty_clause = Some(clause);
+            return;
+        }
+
+        let new_candidates = self.kb.learn_rc(clause);
+
+        for (a, b) in new_candidates {
+            self.try_resolve(a, b);
+        }
+    }
+
+    /// Learns the next clause in queue. Returns `false` if the queue is empty
+    /// or if the empty clause was learned.
+    fn deduce(&mut self) -> bool {
+        if self.empty_clause.is_some() {
+            return false;
+        }
+
+        if let Some(candidate) = self.queue.poll_elem() {
+            self.learn(candidate.result.clone());
+
+            // We deduced this clause, so add to deduction map
+            self.deduced.insert(candidate.result.clone(), candidate);
+            self.deductions_made += 1;
+
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Attempts to resolve the two given clauses.
+    fn try_resolve(&mut self, a: Rc<Clause>, b: Rc<Clause>) {
+        for resolvee in Resolvee::find(a.as_ref(), b.as_ref()) {
+            self.resolve(a.clone(), b.clone(), resolvee);
+        }
+    }
+
+    /// Resolves the given clauses using a found resolvee, and inserts it as
+    /// a candidate into the queue.
+    fn resolve(&mut self, a: Rc<Clause>, b: Rc<Clause>, resolvee: Resolvee) {
+        let Resolvee { a: a_atom, b: b_atom, a_neg, b_neg, mgu } = &resolvee;
+
+        let mut new_a = a.as_ref().clone();
+        let mut new_b = b.as_ref().clone();
+
+        // Remove resolved atoms
+        if *a_neg {
+            new_a.remove_neg(a_atom);
+        } else {
+            new_a.remove_pos(a_atom);
+        }
+
+        if *b_neg {
+            new_b.remove_neg(b_atom);
+        } else {
+            new_b.remove_pos(b_atom);
+        }
+
+        // Concat clauses and unify by the MGU
+        let result = new_a.concat(new_b).unify(mgu);
+
+        // If the result is not disjoint, then it contains a literal both
+        // in positive and negative forms. That means the clause is per
+        // definition a tautology and we must ignore it.
+        if !result.is_disjoint() {
+            return;
+        }
+
+        // Clause heuristic
+        let heuristic = self.heuristic.heuristic(&result);
+
+        // Insert into queue
+        self.queue.insert_elem(Candidate {
+            a,
+            b,
+            resolvee,
+            result: Rc::new(result),
+            heuristic
+        });
+    }
+
+
+    fn derive_proof(&self, empty_clause: Rc<Clause>) -> Vec<Deduction> {
+        let mut builder = ProofBuilder {
+            resolver: &self,
+            proof: Vec::new(),
+            index_table: BTreeMap::new()
+        };
+
+        // Add premises
+        for premise in &self.premises {
+            builder.add_premise(premise.clone());
+        }
+
+        builder.qed(empty_clause);
+
+        builder.proof
+    }
+}
+
+struct ProofBuilder<'lt> {
+    resolver: &'lt Resolver,
+    proof: Vec<Deduction>,
+    index_table: BTreeMap<Rc<Clause>, usize>
+}
+
+impl ProofBuilder<'_> {
+    fn qed(&mut self, clause: Rc<Clause>) {
+        let line = self.recursively_add_deduced(clause);
+        self.proof.push(Deduction::QED {
+            line_with_bottom: line
+        });
+    }
+
+    fn add(&mut self, clause: Rc<Clause>, ded: Deduction) -> usize {
+        let index = self.proof.len();
+
+        self.proof.push(ded);
+
+        self.index_table.insert(clause, index);
+
+        index
+    }
+
+    fn add_premise(&mut self, premise: Rc<Clause>) {
+        let clause = premise.as_ref().clone();
+        self.add(premise, Deduction::Premise {
+            clause
+        });
+    }
+
+    fn recursively_add_deduced(&mut self, deduced: Rc<Clause>) -> usize {
+        if let Some(index) = self.index_table.get(&deduced) {
+            // reiteration
+            return *index;
+        }
+
+        if let Some(cand) = self.resolver.deduced.get(&deduced) {
+            let a_line = self.recursively_add_deduced(cand.a.clone());
+            let b_line = self.recursively_add_deduced(cand.b.clone());
+
+            let clause = deduced.as_ref().clone();
+            let resolvee = cand.resolvee.clone();
+
+            self.add(deduced, Deduction::Resolve {
+                clause,
+                a_line,
+                b_line,
+                resolvee
+            })
+        } else {
+            let clause = deduced.as_ref().clone();
+            self.add(deduced, Deduction::Magic {
+                clause
+            })
         }
     }
 }

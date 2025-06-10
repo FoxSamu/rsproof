@@ -56,11 +56,13 @@ impl KnowledgeBase {
         }
     }
 
+    pub fn learn(&mut self, c: Clause) -> BTreeSet<(Rc<Clause>, Rc<Clause>)> {
+        self.learn_rc(Rc::new(c))
+    }
+
     /// Learns a specific clause. The return value is a set of candidates that were freshly
     /// obtained from learning this clause.
-    pub fn learn(&mut self, c: Clause) -> BTreeSet<(Rc<Clause>, Rc<Clause>)> {
-        let rc = Rc::new(c);
-
+    pub fn learn_rc(&mut self, rc: Rc<Clause>) -> BTreeSet<(Rc<Clause>, Rc<Clause>)> {
         let mut pos_names = BTreeSet::new();
         let mut neg_names = BTreeSet::new();
 

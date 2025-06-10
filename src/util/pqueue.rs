@@ -32,9 +32,9 @@ W : Ord + Copy {
     pub fn assoc<I, F>(iter: I, mut scale: F) -> Self
     where
     I : IntoIterator<Item = E>,
-    F : FnMut(&E) -> W {
-        Self::from_iter(iter.into_iter().map(|e| {
-            let w = scale(&e);
+    F : FnMut(&mut E) -> W {
+        Self::from_iter(iter.into_iter().map(|mut e| {
+            let w = scale(&mut e);
             (e, w)
         }))
     }
@@ -45,10 +45,10 @@ W : Ord + Copy {
     /// The total operation takes `O(N)` if there are `N` elements in the queue.
     pub fn reassoc<F>(&mut self, mut scale: F)
     where
-    F : FnMut(&E, W) -> W {
+    F : FnMut(&mut E, W) -> W {
         let mut heap = std::mem::take(&mut self.heap);
-        heap = heap.into_iter().map(|(e, mut w)| {
-            w = scale(&e, w);
+        heap = heap.into_iter().map(|(mut e, mut w)| {
+            w = scale(&mut e, w);
             (e, w)
         }).collect();
         self.heap = heap;
@@ -315,9 +315,21 @@ W : Ord + Copy {
     /// Reassociates elements by their default weights given by [Weighted].
     /// 
     /// The total operation takes `O(N)` if there are `N` elements in the queue.
-    pub fn reassoc_elem(&mut self) {
+    pub fn reassoc_elem<F>(&mut self) {
+        self.reassoc_modify(|e| e);
+    }
+
+    /// Reassociates elements by their default weights given by [Weighted], after
+    /// modifying each element using a modifier function.
+    /// 
+    /// The total operation takes `O(N)` if there are `N` elements in the queue.
+    pub fn reassoc_modify<F>(&mut self, mut modifier: F)
+    where
+    F : FnMut(E) -> E {
         let mut heap = std::mem::take(&mut self.heap);
-        heap = heap.into_iter().map(|(e, _)| {
+        heap = heap.into_iter().map(|(mut e, _)| {
+            e = modifier(e);
+
             let w = e.weight();
             (e, w)
         }).collect();

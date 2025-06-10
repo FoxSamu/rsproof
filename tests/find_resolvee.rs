@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 
-use rsplib::res::{find_resolvees, Resolvee};
+use rsplib::res::Resolvee;
 use rsplib::test::TestContext;
 
 fn assert_eq_unordered<T>(a: Vec<T>, b: Vec<T>) where T : Ord + Debug {
@@ -29,7 +29,7 @@ fn unifies_1() {
         ])
     }];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
@@ -50,7 +50,7 @@ fn unifies_2() {
         mgu: ctx.mgu([])
     }];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
@@ -74,7 +74,7 @@ fn unifies_3() {
         ])
     }];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
@@ -97,7 +97,7 @@ fn unifies_4() {
         ])
     }];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
@@ -129,7 +129,7 @@ fn unifies_5() {
         }
     ];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
@@ -163,7 +163,7 @@ fn unifies_6() {
         },
     ];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
@@ -178,7 +178,7 @@ fn does_not_unify_1() {
     
     let expect: Vec<Resolvee> = vec![];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
@@ -193,7 +193,7 @@ fn does_not_unify_2() {
     
     let expect: Vec<Resolvee> = vec![];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
@@ -208,7 +208,7 @@ fn does_not_unify_3() {
     
     let expect: Vec<Resolvee> = vec![];
 
-    let actual = find_resolvees(&a, &b);
+    let actual = Resolvee::find(&a, &b);
 
     assert_eq_unordered(expect, actual)
 }
