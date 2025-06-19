@@ -1,0 +1,1 @@
+all x: (P(x) -> Q(x)),  all x: !Q(x), all x: (S(x) -> S(t(x))), all x: (S(t(x)) -> S(u(x))) |- no x: P(x)

@@ -3,11 +3,12 @@ use std::mem::replace;
 
 use crate::expr::{AExpr, Name, Names, Vars};
 use crate::nf::Atom;
-use crate::uni::Unifiable;
+use crate::uni::{Substitutable, Unifiable};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
 pub struct PredicateIndex {
-    preds: BTreeMap<Name, BTreeSet<Vec<AExpr>>>
+    preds: BTreeMap<Name, BTreeSet<Vec<AExpr>>>,
+    eqs: BTreeSet<(AExpr, AExpr)>
 }
 
 /// A predicate index is a set of predicate calls. That is, it stores elements like
@@ -28,7 +29,8 @@ impl PredicateIndex {
     /// Creates a new [PredicateIndex].
     pub fn new() -> Self {
         Self {
-            preds: BTreeMap::new()
+            preds: BTreeMap::new(),
+            eqs: BTreeSet::new(),
         }
     }
 
@@ -40,14 +42,16 @@ impl PredicateIndex {
     /// Inserts a new [Atom] into the index.
     pub fn insert(&mut self, atom: Atom) -> bool {
         match atom {
-            Atom::Pred(name, args) => self.insert_pred(name, args)
+            Atom::Pred(name, args) => self.insert_pred(name, args),
+            Atom::Eq(lhs, rhs) => self.insert_eq((lhs, rhs)),
         }
     }
 
     /// Removes an [Atom] from the index.
     pub fn remove(&mut self, atom: &Atom) -> bool {
         match atom {
-            Atom::Pred(name, args) => self.remove_pred(name, args)
+            Atom::Pred(name, args) => self.remove_pred(name, args),
+            Atom::Eq(pair) => self.remove_eq(&pair),
         }
     }
 
@@ -62,6 +66,10 @@ impl PredicateIndex {
     pub fn insert_pred(&mut self, pred: Name, args: Vec<AExpr>) -> bool {
         let set = self.preds.entry(pred).or_insert_with(|| BTreeSet::new());
         set.insert(args)
+    }
+
+    pub fn insert_eq(&mut self, eq: (AExpr, AExpr)) -> bool {
+        self.eqs.insert(eq)
     }
 
     /// Removes a predicate from the index, given a [Name] and a [Vec] of [AExpr]s.
@@ -81,6 +89,10 @@ impl PredicateIndex {
         rmv
     }
 
+    pub fn remove_eq(&mut self, eq: &(AExpr, AExpr)) -> bool {
+        self.eqs.remove(eq)
+    }
+
     /// Tests whether a predicate is in the index, given a [Name] and a [Vec] of [AExpr]s.
     pub fn contains_pred(&self, pred: &Name, args: &Vec<AExpr>) -> bool {
         if let Some(r) = self.preds.get(pred) {
@@ -88,6 +100,10 @@ impl PredicateIndex {
         } else {
             false
         }
+    }
+
+    pub fn contains_eq(&mut self, eq: &(AExpr, AExpr)) -> bool {
+        self.eqs.contains(eq)
     }
 
     /// Removes all predicates from the index with a given name.
@@ -99,15 +115,32 @@ impl PredicateIndex {
         }
     }
 
+    pub fn remove_eqs(&mut self) -> bool {
+        if self.eqs.is_empty() {
+            false
+        } else {
+            self.eqs.clear();
+            true
+        }
+    }
+
     /// Gets all occurences of a predicate given by name. The returned set only lists the
     /// different combinations of arguments that appear in the index.
     pub fn get_preds(&self, pred: &Name) -> Option<&BTreeSet<Vec<AExpr>>> {
         self.preds.get(pred).filter(|set| !set.is_empty())
     }
 
+    pub fn get_eqs(&self) -> Option<&BTreeSet<(AExpr, AExpr)>> {
+        Some(&self.eqs)
+    }
+
     /// Tests whether any predicate with the given name exists in this index.
     pub fn contains_preds(&self, pred: &Name) -> bool {
         self.preds.get(pred).filter(|set| !set.is_empty()).is_some()
+    }
+
+    pub fn contains_eqs(&self) -> bool {
+        !self.eqs.is_empty()
     }
     
 
@@ -124,23 +157,30 @@ impl PredicateIndex {
         })
     }
 
+    pub fn iter_eqs(&self) -> impl Iterator<Item = &(AExpr, AExpr)> {
+        self.eqs.iter()
+    }
+
 
 
     /// Computes the union of this [PredicateIndex] and another. The returned
     /// index has all predicates that occur in both this set and the other.
-    pub fn union(mut self, other: Self) -> Self {
+    pub fn union(mut self, mut other: Self) -> Self {
         for (name, set) in other.preds.into_iter() {
             for args in set {
                 self.insert_pred(name, args);
             }
         }
 
+        self.eqs.append(&mut other.eqs);
+
         self
     }
 
     /// Tests whether this [PredicateIndex] contains no predicates.
     pub fn is_empty(&self) -> bool {
-        self.preds.is_empty() || self.preds.values().all(|it| it.is_empty())
+        (self.preds.is_empty() || self.preds.values().all(|it| it.is_empty()))
+        && self.eqs.is_empty()
     }
 
     /// Tests whether this [PredicateIndex] is disjoint from another. This
@@ -152,6 +192,10 @@ impl PredicateIndex {
                     return false;
                 }
             }
+        }
+
+        if !self.eqs.is_disjoint(&other.eqs) {
+            return false;
         }
 
         true
@@ -218,6 +262,19 @@ impl Names for PredicateIndex {
 impl Vars for PredicateIndex {
     fn vars<A>(&self) -> A where A : FromIterator<Name> {
         return self.preds.values().flat_map(|it| it.names::<Vec<_>>()).collect();
+    }
+}
+
+impl Substitutable for PredicateIndex {
+    fn subst(mut self, from: &AExpr, to: &AExpr) -> Self {
+        let mut empty = BTreeSet::new();
+
+        for set in self.preds.values_mut() {
+            let new_set = replace(set, empty).subst(from, to);
+            empty = replace(set, new_set)
+        }
+
+        self
     }
 }
 

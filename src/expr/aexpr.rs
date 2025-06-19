@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::fmt::{write_comma_separated, DisplayNamed, NameTable};
-use crate::uni::{Unifiable, Unifier};
+use crate::uni::{Substitutable, Unifiable, Unifier};
 
 use super::{Name, Names};
 
@@ -36,6 +36,22 @@ impl AExpr {
     pub fn fun(name: Name, args: Vec<AExpr>) -> AExpr {
         AExpr::Fun(name, args)
     }
+
+    pub fn subexprs<A>(&self) -> A
+    where
+    A : FromIterator<AExpr> {
+        match self {
+            AExpr::Var(_) => {
+                Some(self.clone()).into_iter().collect()
+            },
+            AExpr::Fun(_, args) => {
+                args.iter()
+                    .flat_map(|it| it.subexprs::<Vec<_>>())
+                    .chain(Some(self.clone()).into_iter())
+                    .collect()
+            },
+        }
+    }
 }
 
 impl Default for AExpr {
@@ -58,6 +74,19 @@ impl Vars for AExpr {
         match self {
             AExpr::Var(name) => name.names(),
             AExpr::Fun(_, args) => args.vars(),
+        }
+    }
+}
+
+impl Substitutable for AExpr {
+    fn subst(self, from: &AExpr, to: &AExpr) -> Self {
+        if self == *from {
+            return to.clone();
+        }
+
+        match self {
+            AExpr::Var(name) => AExpr::Var(name),
+            AExpr::Fun(name, args) => AExpr::Fun(name, args.subst(from, to)),
         }
     }
 }

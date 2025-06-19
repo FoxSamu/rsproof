@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 
 use crate::expr::{AExpr, BExpr, Name, Names, Vars};
 use crate::fmt::{write_comma_separated, DisplayNamed, NameTable};
-use crate::uni::Unifiable;
+use crate::uni::{Substitutable, Unifiable};
 
 pub use index::PredicateIndex;
 
@@ -26,7 +26,17 @@ mod index;
 /// An atomic expression. Atoms are the leaves of a [BExpr] tree.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub enum Atom {
-    Pred(Name, Vec<AExpr>)
+    Pred(Name, Vec<AExpr>),
+
+    /// An equality, e.g. `x == y`
+    Eq((AExpr, AExpr))
+}
+
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+enum AtomKey {
+    Pred(Name),
+    Eq
 }
 
 
@@ -50,6 +60,15 @@ pub struct NormalForm {
     clauses: Clauses
 }
 
+
+impl Atom {
+    fn key(&self) -> AtomKey {
+        match self {
+            Atom::Pred(name, _) => AtomKey::Pred(*name),
+            Atom::Eq(_) => AtomKey::Eq,
+        }
+    }
+}
 
 impl Clause {
     /// Constructs a new empty clause.
@@ -345,6 +364,7 @@ impl Names for Atom {
     fn names<A>(&self) -> A where A : FromIterator<Name> {
         match self {
             Atom::Pred(name, args) => (name, args).names(),
+            Atom::Eq(pair) => pair.names(),
         }
     }
 }
@@ -365,6 +385,7 @@ impl Vars for Atom {
     fn vars<A>(&self) -> A where A : FromIterator<Name> {
         match self {
             Atom::Pred(_, args) => args.vars(),
+            Atom::Eq(pair) => pair.vars(),
         }
     }
 }
@@ -381,22 +402,50 @@ impl Vars for NormalForm {
     }
 }
 
+impl Substitutable for Atom {
+    fn subst(self, from: &AExpr, to: &AExpr) -> Self {
+        match self {
+            Atom::Pred(name, args) => Atom::Pred(name, args.subst(from, to)),
+            Atom::Eq(pair) => Atom::Eq(pair.subst(from, to)),
+        }
+    }
+}
+
+impl Substitutable for Clause {
+    fn subst(mut self, from: &AExpr, to: &AExpr) -> Self {
+        self.pos = self.pos.subst(from, to);
+        self.neg = self.neg.subst(from, to);
+        self
+    }
+}
+
+impl Substitutable for NormalForm {
+    fn subst(mut self, from: &AExpr, to: &AExpr) -> Self {
+        self.clauses = self.clauses.subst(from, to);
+        self
+    }
+}
+
 impl Unifiable for Atom {
     fn unify(self, unifier: &crate::uni::Unifier) -> Self {
         match self {
             Atom::Pred(name, args) => Atom::Pred(name, args.unify(unifier)),
+            Atom::Eq(pair) => Atom::Eq(pair.unify(unifier)),
         }
     }
     
     fn can_resolve_mgu(a: &Self, b: &Self) -> bool {
         match (a, b) {
             (Atom::Pred(p, ps), Atom::Pred(q, qs)) => p == q && Vec::can_resolve_mgu(ps, qs),
+            (Atom::Eq(pp), Atom::Eq(qp)) => Unifiable::can_resolve_mgu(pp, qp),
+            _ => false
         }
     }
     
     fn mgu_arguments(&self) -> Option<Vec<AExpr>> {
         match self {
-            Atom::Pred(_, args) => Some(args.clone())
+            Atom::Pred(_, args) => Some(args.clone()),
+            Atom::Eq(pair) => pair.mgu_arguments()
         }
     }
 }
@@ -441,6 +490,9 @@ impl DisplayNamed for Atom {
                 write!(f, "{}(", name.with_table(names))?;
                 write_comma_separated(f, names, args.iter())?;
                 write!(f, ")")?;
+            },
+            Atom::Eq((lhs, rhs)) => {
+                write!(f, "({} == {})", lhs.with_table(names), rhs.with_table(names))?;
             }
         }
 
@@ -484,6 +536,15 @@ impl DisplayNamed for NormalForm {
     }
 }
 
+impl DisplayNamed for AtomKey {
+    fn fmt_named(&self, f: &mut std::fmt::Formatter<'_>, names: &crate::fmt::NameTable) -> std::fmt::Result {
+        match self {
+            AtomKey::Pred(name) => write!(f, "Pred({})", name.with_table(names)),
+            AtomKey::Eq => write!(f, "Eq")
+        }
+    }
+}
+
 impl Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self.with_table(&NameTable::new()), f)
@@ -502,6 +563,12 @@ impl Display for NormalForm {
     }
 }
 
+impl Display for AtomKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.with_table(&NameTable::new()), f)
+    }
+}
+
 impl Debug for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.with_table(&NameTable::new()), f)
@@ -515,6 +582,13 @@ impl Debug for Clause {
 }
 
 impl Debug for NormalForm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.with_table(&NameTable::new()), f)
+    }
+}
+
+
+impl Debug for AtomKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.with_table(&NameTable::new()), f)
     }

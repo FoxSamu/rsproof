@@ -1,10 +1,26 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+use crate::fmt::DisplayNamed;
 use crate::nf::Clause;
 use crate::expr::Name;
 
 type RcClauses = BTreeSet<Rc<Clause>>;
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+enum PredKey {
+    Pred(Name)
+}
+
+use PredKey::*;
+
+impl DisplayNamed for PredKey {
+    fn fmt_named(&self, f: &mut std::fmt::Formatter<'_>, names: &crate::fmt::NameTable) -> std::fmt::Result {
+        match self {
+            PredKey::Pred(name) => write!(f, "Pred({})", name.with_table(names))
+        }
+    }
+}
 
 /// A [KnowledgeBase] systematically stores [Clause]s so that clauses with complementary predicates,
 /// e.g. `P` and `!P`, can be quickly matched.
@@ -40,8 +56,8 @@ pub struct KnowledgeBase {
 
 
     clauses: RcClauses,
-    by_pos: BTreeMap<Name, RcClauses>,
-    by_neg: BTreeMap<Name, RcClauses>,
+    by_pos: BTreeMap<PredKey, RcClauses>,
+    by_neg: BTreeMap<PredKey, RcClauses>,
     candidates: BTreeSet<(Rc<Clause>, Rc<Clause>)>
 }
 
@@ -78,7 +94,7 @@ impl KnowledgeBase {
         // Map by positive names
         for pos in rc.pos().iter_pred_names() {
             let entry = self.by_pos
-                .entry(*pos)
+                .entry(Pred(*pos))
                 .or_insert(RcClauses::new());
 
             entry.insert(rc.clone());
@@ -89,7 +105,7 @@ impl KnowledgeBase {
         // Map by negative names
         for neg in rc.neg().iter_pred_names() {
             let entry = self.by_neg
-                .entry(*neg)
+                .entry(Pred(*neg))
                 .or_insert(RcClauses::new());
 
             entry.insert(rc.clone());
@@ -99,7 +115,7 @@ impl KnowledgeBase {
 
         // Map positive names with negative candidates
         for name in pos_names {
-            if let Some(set) = self.by_neg.get(&name) {
+            if let Some(set) = self.by_neg.get(&Pred(name)) {
                 for elem in set {
                     if *rc != **elem {
                         self.candidates.insert((rc.clone(), elem.clone()));
@@ -111,7 +127,7 @@ impl KnowledgeBase {
 
         // Map negative names with positive candidates
         for name in neg_names {
-            if let Some(set) = self.by_pos.get(&name) {
+            if let Some(set) = self.by_pos.get(&Pred(name)) {
                 for elem in set {
                     if *rc != **elem {
                         self.candidates.insert((elem.clone(), rc.clone()));

@@ -252,7 +252,7 @@ impl Unifiable for BExpr {
             BExpr::Some(name, rhs) => BExpr::Some(name, rhs.unify(&unifier.clone_without(&name))),
         }
     }
-    
+
     fn can_resolve_mgu(a: &Self, b: &Self) -> bool {
         match (a, b) {
             (BExpr::Pred(p, ps), BExpr::Pred(q, qs)) => p == q && Vec::can_resolve_mgu(ps, qs),

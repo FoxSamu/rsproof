@@ -1,0 +1,1 @@
+all x: (P(x) <-> (Q(x) | P(x))), P(foo), !Q(foo) |- R(foo)

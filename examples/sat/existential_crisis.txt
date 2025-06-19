@@ -1,0 +1,8 @@
+all x: (P(x) -> Q(x)),
+all x: (P(x) -> R(x)),
+all x: P(x)
+
+|-
+
+all x: Q(x),
+all x: R(x)

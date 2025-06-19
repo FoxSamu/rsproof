@@ -1,6 +1,7 @@
 use std::collections::btree_map::IntoIter;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::hash::Hash;
+use std::rc::Rc;
 
 use crate::expr::{AExpr, Name, Names, Vars};
 use crate::fmt::{write_comma_separated, DisplayNamed};
@@ -273,7 +274,7 @@ impl<U> Unifiable for Box<U> where U : Unifiable {
     fn unify(self, unifier: &Unifier) -> Self {
         Box::new((*self).unify(unifier))
     }
-    
+
     fn can_resolve_mgu(a: &Self, b: &Self) -> bool {
         U::can_resolve_mgu(a.as_ref(), b.as_ref())
     }

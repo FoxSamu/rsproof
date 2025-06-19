@@ -190,6 +190,7 @@ impl OptsParser {
             Some("-s") | Some("--steps") => {
                 self.shift();
                 if let Some(s) = self.next_str().and_then(|e| e.parse::<usize>().ok()) {
+                    self.shift();
                     Ok(s)
                 } else {
                     Err(None).with_error(format!("Usage of -s: `-s <number>`"))

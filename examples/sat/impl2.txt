@@ -1,0 +1,1 @@
+all x: (P(x) -> Q(x)) & all x: !Q(x) & P(z) |- true
