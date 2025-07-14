@@ -4,7 +4,7 @@ use rsplib::expr::Stmt;
 use rsplib::fmt::DisplayNamed;
 use rsplib::nf::NormalForm;
 use rsplib::parser::{Output, ParseContext};
-use rsplib::res::{Proof, Resolver};
+use rsplib::res::{Heuristic, Proof, Resolver};
 
 use crate::options::Verbosity;
 
@@ -15,7 +15,7 @@ fn try_parse(input: InputSource) -> Result<Output<Stmt>, String> {
     ParseContext::new().stmt_output(input).map_err(|err| format!("{err}"))
 }
 
-pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verbosity, prefer_counterproof: bool) -> ExitCode {
+pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verbosity, prefer_counterproof: bool, heuristic: Heuristic) -> ExitCode {
     let Output { result, name_table } = match try_parse(input) {
         Ok(ok) => ok,
         Err(err) => {
@@ -41,6 +41,7 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
 
     // Resolver
     let mut resolver = Resolver::new();
+    resolver.set_heuristic(heuristic);
     resolver.assume_cnf(cnf.clone()); // clone CNF so we can print it later
 
     // Resolution

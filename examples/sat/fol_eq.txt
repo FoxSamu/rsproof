@@ -1,0 +1,12 @@
+# Equality in pure FOL
+
+all x: Eq(x, x),
+all x, y: (Eq(x, y) <-> Eq(y, x)),
+all x, y, z: ((Eq(x, y) & Eq(y, z)) -> Eq(x, z)),
+
+Eq(a, b),
+Eq(b, c)
+
+|-
+
+Eq(c, a)

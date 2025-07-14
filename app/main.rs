@@ -13,8 +13,8 @@ fn main() -> ExitCode {
     #[allow(deprecated)]
     match opts.run_mode {
         options::RunMode::Legacy(verbose) => legacy::main(verbose),
-        options::RunMode::Prove(input, (t, s,  v)) => prove::main(input, t, s, v, false),
-        options::RunMode::Disprove(input, (t, s,  v)) => prove::main(input, t, s, v, true),
+        options::RunMode::Prove(input, (t, s, v, h)) => prove::main(input, t, s, v, false, h),
+        options::RunMode::Disprove(input, (t, s, v, h)) => prove::main(input, t, s, v, true, h),
         options::RunMode::Mgu(input) => mgu::main(input),
 
         options::RunMode::Help => print_help(opts.base_command),
@@ -42,7 +42,8 @@ Usage: `{base} [<command> <arguments>]`
 
     {base} (prove | disprove) ((-i | --stdin) | (-f | --file) <filename>
             | [-r | --raw] <raw_input>) ((-v | --verbose) | (-q |
-            --quiet) | (-t | --tseitin) | (-s | --steps) <number>)*
+            --quiet) | (-t | --tseitin) | (-s | --steps) <number> | (-H |
+            --heuristic) (naive|prefer_empty|symbol_count))*
         Prove (or disprove) a specific statement. The statement is an
         input of the form `P, Q, ... |- R, S, ...`, which proves the
         statements `R, S, ...` from the given premises `P, Q, ...`. The
@@ -53,7 +54,7 @@ Usage: `{base} [<command> <arguments>]`
         `disprove` will strive to refute the statement itself.
           -i   --stdin                      Read input from stdin.
           -f   --file           <path>      Read input from given file.
-          -r   --raw            <input>     Use the given argument as raw 
+          -r   --raw            <input>     Use the given argument as raw
                                             input. You may omit the `-r`.
           -v   --verbose                    Print extra information with
                                             the proof.
@@ -65,6 +66,17 @@ Usage: `{base} [<command> <arguments>]`
           -s   --steps          <number>    Restrict the prover to a 
                                             specific amount of resolution
                                             steps.
+          -H   --heuristic      <heuristic> Use a specific heuristic to
+                                            determine clause priority.
+                                            `naive` assigns all clauses
+                                            the same heuristic.
+                                            `prefer_empty` is the same as
+                                            `naive` but it assigns the
+                                            empty clause a higher
+                                            priority.
+                                            `symbol_count` prioritises
+                                            clauses based on the amount
+                                            of symbols.
         The output starts with one of 3 keywords, with the following 
         meanings:
           proven                            A proof was found.

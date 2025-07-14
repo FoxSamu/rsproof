@@ -2,6 +2,7 @@ use std::env::{self, Args};
 use std::mem::replace;
 use std::{fs, io};
 
+use rsplib::res::Heuristic;
 use rsplib::util::trires::{TriRes, TriResult};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -29,8 +30,8 @@ impl InputSource {
 
 pub enum RunMode {
     Legacy(bool),
-    Prove(InputSource, (bool, usize, Verbosity)),
-    Disprove(InputSource, (bool, usize, Verbosity)),
+    Prove(InputSource, (bool, usize, Verbosity, Heuristic)),
+    Disprove(InputSource, (bool, usize, Verbosity, Heuristic)),
     Mgu(InputSource),
     Help,
     Error(String)
@@ -165,9 +166,49 @@ impl OptsParser {
         }
     }
 
+    fn heuristic(&mut self) -> TriResult<Heuristic, String> {
+        match self.next_str() {
+            Some("-H" | "--heuristic") => {
+                self.shift();
+
+                match self.next_str() {
+                    Some("naive") => {
+                        self.shift();
+
+                        Ok(Heuristic::Naive)
+                    },
+
+                    Some("prefer_empty") => {
+                        self.shift();
+
+                        Ok(Heuristic::PreferEmpty)
+                    },
+
+                    Some("symbol_count") => {
+                        self.shift();
+
+                        Ok(Heuristic::SymbolCount)
+                    },
+
+                    Some(str) => {
+                        Err(None).with_error(format!("Unknown heuristic: {str}"))
+                    },
+
+                    None => {
+                        Err(None).with_error(format!("Usage of -H: `-H (naive|prefer_empty|symbol_count)`"))
+                    }
+                }
+            },
+
+            _ => {
+                Err(None)
+            },
+        }
+    }
+
     fn tseitin(&mut self) -> TriResult<bool, String> {
         match self.next_str() {
-            Some("-t") | Some("--tseitin") => {
+            Some("-t" | "--tseitin") => {
                 self.shift();
 
                 Ok(true)
@@ -187,9 +228,10 @@ impl OptsParser {
 
     fn max_steps(&mut self) -> TriResult<usize, String> {
         match self.next_str() {
-            Some("-s") | Some("--steps") => {
+            Some("-s" | "--steps") => {
                 self.shift();
                 if let Some(s) = self.next_str().and_then(|e| e.parse::<usize>().ok()) {
+                    self.shift();
                     Ok(s)
                 } else {
                     Err(None).with_error(format!("Usage of -s: `-s <number>`"))
@@ -199,15 +241,17 @@ impl OptsParser {
         }
     }
 
-    fn prove_options(&mut self) -> TriResult<(bool, usize, Verbosity), String> {
+    fn prove_options(&mut self) -> TriResult<(bool, usize, Verbosity, Heuristic), String> {
         let mut tseitin = false;
         let mut steps = 0usize;
         let mut verbosity = Verbosity::Normal;
+        let mut heuristic = Heuristic::SymbolCount;
 
         loop {
             match self.tseitin() {
                 Ok(t) => {
                     tseitin = t;
+                    continue;
                 },
                 Err(None) => {},
                 Err(Some(e)) => return Err(Some(e)),
@@ -216,6 +260,7 @@ impl OptsParser {
             match self.max_steps() {
                 Ok(t) => {
                     steps = t;
+                    continue;
                 },
                 Err(None) => {},
                 Err(Some(e)) => return Err(Some(e)),
@@ -224,12 +269,22 @@ impl OptsParser {
             match self.verbosity() {
                 Ok(t) => {
                     verbosity = t;
+                    continue;
                 },
                 Err(None) => {},
                 Err(Some(e)) => return Err(Some(e)),
             }
 
-            break Ok((tseitin, steps, verbosity))
+            match self.heuristic() {
+                Ok(t) => {
+                    heuristic = t;
+                    continue;
+                },
+                Err(None) => {},
+                Err(Some(e)) => return Err(Some(e)),
+            }
+
+            break Ok((tseitin, steps, verbosity, heuristic))
         }
     }
 
