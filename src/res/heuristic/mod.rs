@@ -1,7 +1,9 @@
 use crate::nf::Clause;
+use crate::res::heuristic::disjunct_count::disjunct_count;
 use crate::res::heuristic::symbol_count::symbol_count;
 
 mod symbol_count;
+mod disjunct_count;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Heuristic {
@@ -14,7 +16,11 @@ pub enum Heuristic {
 
     /// A heuristic that counts all the symbols in the clause. That is, it counts all predicates,
     /// all functions and all variables.
-    SymbolCount
+    SymbolCount,
+
+    /// A heuristic that counts all the disjunct in the clause. That is, it counts all predicates,
+    /// but disregards all functions and variables.
+    DisjunctCount
 }
 
 impl Heuristic {
@@ -23,6 +29,7 @@ impl Heuristic {
             Heuristic::Naive => 0,
             Heuristic::PreferEmpty => if clause.is_empty() { 0 } else { 1 },
             Heuristic::SymbolCount => symbol_count(clause),
+            Heuristic::DisjunctCount => disjunct_count(clause),
         }
     }
 }

@@ -190,12 +190,18 @@ impl OptsParser {
                         Ok(Heuristic::SymbolCount)
                     },
 
+                    Some("disjunct_count") => {
+                        self.shift();
+
+                        Ok(Heuristic::DisjunctCount)
+                    },
+
                     Some(str) => {
                         Err(None).with_error(format!("Unknown heuristic: {str}"))
                     },
 
                     None => {
-                        Err(None).with_error(format!("Usage of -H: `-H (naive|prefer_empty|symbol_count)`"))
+                        Err(None).with_error(format!("Usage of -H: `-H (naive | prefer_empty | symbol_count | disjunct_count)`"))
                     }
                 }
             },

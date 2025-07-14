@@ -43,7 +43,8 @@ Usage: `{base} [<command> <arguments>]`
     {base} (prove | disprove) ((-i | --stdin) | (-f | --file) <filename>
             | [-r | --raw] <raw_input>) ((-v | --verbose) | (-q |
             --quiet) | (-t | --tseitin) | (-s | --steps) <number> | (-H |
-            --heuristic) (naive|prefer_empty|symbol_count))*
+            --heuristic) (naive | prefer_empty | symbol_count |
+            disjunct_count))*
         Prove (or disprove) a specific statement. The statement is an
         input of the form `P, Q, ... |- R, S, ...`, which proves the
         statements `R, S, ...` from the given premises `P, Q, ...`. The
@@ -76,7 +77,10 @@ Usage: `{base} [<command> <arguments>]`
                                             priority.
                                             `symbol_count` prioritises
                                             clauses based on the amount
-                                            of symbols.
+                                            of symbols (names).
+                                            `disjunct_count` prioritises
+                                            clauses based on the amount
+                                            of disjuncts.
         The output starts with one of 3 keywords, with the following 
         meanings:
           proven                            A proof was found.
