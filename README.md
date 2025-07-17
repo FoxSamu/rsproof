@@ -54,8 +54,6 @@ atom:
 
 pred:
     sym '(' args ')'
-    sym '==' sym
-    sym '!=' sym
     sym
 
 args:
