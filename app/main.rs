@@ -31,6 +31,11 @@ fn print_error(base: String, err: String) -> ExitCode {
 
 fn print_help(base: String) -> ExitCode {
     println!("RSPROOF | A resolution-based theorem prover.
+Copyright (C) 2025  Olaf W. Nankman.
+Licensed under the GPLv3 license. This program comes with ABSOLUTELY
+NO WARRANTY. This is free software, and you are welcome to redistribute
+it under certain conditions. See <https://www.gnu.org/licenses/> for the
+full license.
 
 Usage: `{base} [<command> <arguments>]`
     {base} help
