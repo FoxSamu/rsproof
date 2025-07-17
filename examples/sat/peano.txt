@@ -29,8 +29,8 @@
 
 |-
 
-# Now we prove: 3 + 2 = 5
+# Now we prove: 1 + 1 = 2
 Eq(
-    plus( succ(succ(succ(zero))), succ(succ(zero)) ),
-    plus( succ(zero), succ(succ(succ(succ(zero)))) ),
+    plus( succ(zero), succ(zero) ),
+    succ(succ(zero))
 )

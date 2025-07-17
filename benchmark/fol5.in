@@ -1,0 +1,8 @@
+all x: (P(x) <- P(t(x))),
+all x: (P(t(x)) <- P(u(x, x))),
+
+P(t(u(t(u(t(a), t(a))), t(u(t(a), t(a))))))
+
+|-
+
+P(a)

@@ -23,6 +23,7 @@ struct Candidate {
 
     // Result and heuristic are important for resolution
     result: Rc<Clause>,
+    depth: u64,
     heuristic: u64
 }
 
@@ -82,6 +83,9 @@ pub struct Resolver {
     /// Candidates that were induced
     deduced: BTreeMap<Rc<Clause>, Candidate>,
 
+    /// Depths
+    depths: BTreeMap<Rc<Clause>, u64>,
+
     /// Amount of deductions made
     deductions_made: usize,
 
@@ -102,6 +106,7 @@ impl Resolver {
             empty_clause: None,
             premises: Vec::new(),
             deduced: BTreeMap::new(),
+            depths: BTreeMap::new(),
             deductions_made: 0,
             learning_order: Vec::new(),
             done: false
@@ -111,7 +116,7 @@ impl Resolver {
     /// Sets the heuristic used by the resolver.
     pub fn set_heuristic(&mut self, heuristic: Heuristic) {
         self.queue.reassoc_modify(|mut e| {
-            e.heuristic = heuristic.heuristic(&e.result);
+            e.heuristic = heuristic.heuristic(&e.result, e.depth);
             e
         });
 
@@ -129,7 +134,7 @@ impl Resolver {
         // a reference counted pointer.
         let rc = Rc::new(c);
 
-        if self.learn(rc.clone()) {
+        if self.learn(rc.clone(), 1) {
             // This clause was assumed, it is thus a premise and we put it in the premise
             // set.
             self.premises.push(rc);
@@ -219,7 +224,7 @@ impl Resolver {
     }
 
     /// Adds a clause to the knowledge base and resolves new candidates from it.
-    fn learn(&mut self, clause: Rc<Clause>) -> bool {
+    fn learn(&mut self, clause: Rc<Clause>, distance: u64) -> bool {
         self.learning_order.push(clause.clone());
 
         if clause.is_empty() {
@@ -228,7 +233,9 @@ impl Resolver {
             return is_new;
         }
 
-        if let Some(new_candidates) = self.kb.learn_rc(clause) {
+        if let Some(new_candidates) = self.kb.learn_rc(clause.clone()) {
+            self.depths.insert(clause.clone(), distance);
+
             for (a, b) in new_candidates {
                 self.try_resolve(a, b);
             }
@@ -247,7 +254,7 @@ impl Resolver {
         }
 
         if let Some(candidate) = self.queue.poll_elem() {
-            if self.learn(candidate.result.clone()) {
+            if self.learn(candidate.result.clone(), candidate.depth) {
                 // We deduced this clause, so add to deduction map
                 self.deduced.insert(candidate.result.clone(), candidate);
             }
@@ -298,8 +305,11 @@ impl Resolver {
             return;
         }
 
+        // Clause distance
+        let depth = u64::max(*self.depths.get(&a).unwrap_or(&1), *self.depths.get(&b).unwrap_or(&1)) + 1;
+
         // Clause heuristic
-        let heuristic = self.heuristic.heuristic(&result);
+        let heuristic = self.heuristic.heuristic(&result, depth);
 
         // Insert into queue
         self.queue.insert_elem(Candidate {
@@ -307,7 +317,8 @@ impl Resolver {
             b,
             resolvee,
             result: Rc::new(result),
-            heuristic
+            heuristic,
+            depth
         });
     }
 

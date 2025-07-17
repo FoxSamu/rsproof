@@ -39,10 +39,14 @@ pub fn main(input: InputSource, tseitin: bool, max_steps: usize, verbosity: Verb
         NormalForm::equiv_cnf(stmt)
     };
 
+    if let Verbosity::Verbose = verbosity {
+        println!("Input CNF has {} clauses", cnf.len())
+    }
+
     // Resolver
     let mut resolver = Resolver::new();
     resolver.set_heuristic(heuristic);
-    resolver.assume_cnf(cnf.clone()); // clone CNF so we can print it later
+    resolver.assume_cnf(cnf);
 
     // Resolution
     let result = if max_steps == 0 {

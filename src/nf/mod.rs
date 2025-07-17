@@ -262,6 +262,11 @@ impl NormalForm {
         self.clauses.retain(|it| it.is_disjoint());
     }
 
+    /// Returns the amount of clauses in this normal form.
+    pub fn len(&self) -> usize {
+        self.clauses.len()
+    }
+
     /// Computes an equivalent Conjunctive Normal Form. It does this by
     /// rewriting the expression using DeMorgan's law and distribution
     /// properties. Finding an equivalent CNF is an NP-hard problem, this

@@ -75,12 +75,22 @@ Usage: `{base} [<command> <arguments>]`
                                             `naive` but it assigns the
                                             empty clause a higher
                                             priority.
+                                            `depth` prioritises clauses
+                                            closer to the premises. The
+                                            empty clause is always
+                                            prioritised.
                                             `symbol_count` prioritises
                                             clauses based on the amount
                                             of symbols (names).
                                             `disjunct_count` prioritises
                                             clauses based on the amount
                                             of disjuncts.
+                                            `symbol_count_plus_depth`
+                                            is a sum of `symbol_count`
+                                            and `depth`.
+                                            `disjunct_count_plus_depth`
+                                            is a sum of `disjunct_count`
+                                            and `depth`.
         The output starts with one of 3 keywords, with the following 
         meanings:
           proven                            A proof was found.

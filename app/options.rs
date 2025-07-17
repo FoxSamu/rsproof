@@ -184,6 +184,12 @@ impl OptsParser {
                         Ok(Heuristic::PreferEmpty)
                     },
 
+                    Some("depth") => {
+                        self.shift();
+
+                        Ok(Heuristic::Distance)
+                    },
+
                     Some("symbol_count") => {
                         self.shift();
 
@@ -196,12 +202,24 @@ impl OptsParser {
                         Ok(Heuristic::DisjunctCount)
                     },
 
+                    Some("symbol_count_plus_depth") => {
+                        self.shift();
+
+                        Ok(Heuristic::SymbolCountPlusDistance)
+                    },
+
+                    Some("disjunct_count_plus_depth") => {
+                        self.shift();
+
+                        Ok(Heuristic::DisjunctCountPlusDistance)
+                    },
+
                     Some(str) => {
                         Err(None).with_error(format!("Unknown heuristic: {str}"))
                     },
 
                     None => {
-                        Err(None).with_error(format!("Usage of -H: `-H (naive | prefer_empty | symbol_count | disjunct_count)`"))
+                        Err(None).with_error(format!("Usage of -H: `-H (naive | prefer_empty | depth | symbol_count | disjunct_count | symbol_count_plus_depth | disjunct_count_plus_depth)`"))
                     }
                 }
             },

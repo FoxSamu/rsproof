@@ -1,8 +1,9 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::mem::take;
 
-use crate::expr::{AExpr, Name, Vars};
+use crate::expr::{AExpr, Vars};
 use crate::expr::AExpr::*;
+use crate::uni::Unifiable;
 
 use super::Unifier;
 
@@ -24,7 +25,7 @@ struct MguFinder {
     g: BTreeSet<(AExpr, AExpr)>,
 
     /// The current `U` map, which is the currently resolved unifier.
-    u: BTreeMap<Name, AExpr>
+    u: Unifier
 }
 
 impl MguFinder {
@@ -32,15 +33,7 @@ impl MguFinder {
     fn new(g: BTreeSet<(AExpr, AExpr)>) -> Self {
         Self {
             g,
-            u: BTreeMap::new()
-        }
-    }
-
-    /// Transforms a term by a given unifier.
-    fn apply_unifier(term: AExpr, unifier: &BTreeMap<Name, AExpr>) -> AExpr {
-        match term {
-            Var(var) => unifier.get(&var).cloned().unwrap_or(Var(var)),
-            Fun(fun, args) => Fun(fun, args.into_iter().map(|e| Self::apply_unifier(e, unifier)).collect()),
+            u: Unifier::new()
         }
     }
 
@@ -60,7 +53,7 @@ impl MguFinder {
             //
             // Note that it is still crucial that `G` gets unified after this loop. Some
             // updates in `U` may not be reflected in `G` yet.
-            let e = (Self::apply_unifier(l, &u), Self::apply_unifier(r, &u));
+            let e = (l.unify(&u), r.unify(&u));
 
             match e {
                 // ELIMINATE
@@ -76,17 +69,18 @@ impl MguFinder {
                         return false;
                     }
 
+
                     // If neither of the above conditions is true, it means we have a valid substitution to
                     // move to the unifier.
-                    u.insert(x, r);
+                    u = u.chain(Unifier::singleton(x, r));
                 },
 
                 // SWAP
                 // Has to be checked AFTER the Eliminate step! If not done so,
                 // `x = y` will be infinitely swapped to `y = x` and back.
-                (l, Var(x)) => {
+                (Fun(y, ys), Var(x)) => {
                     // `f(...) = x` becomes `x = f(...)`
-                    g.insert((Var(x), l));
+                    g.insert((Var(x), Fun(y, ys)));
                 },
 
                 // DECOMPOSE
@@ -126,20 +120,17 @@ impl MguFinder {
         } else {
             // Unify `G`
             for (l, r) in g {
-                self.g.insert((Self::apply_unifier(l, &u), Self::apply_unifier(r, &u)));
+                self.g.insert((l.unify(&u), r.unify(&u)));
             }
 
-            // Unify `U`
-            for (l, r) in &u {
-                self.u.insert(*l, Self::apply_unifier(r.clone(), &u));
-            }
+            self.u = u;
         }
 
         return true;
     }
 
     /// Runs the MGU finding algorithm.
-    fn run(mut self) -> Option<BTreeMap<Name, AExpr>> {
+    fn run(mut self) -> Option<Unifier> {
         // Repeatedly step until `G` is empty or a failure is detected.
         while self.step() {
             if self.g.is_empty() {
@@ -176,14 +167,10 @@ pub fn mgu(left: Vec<AExpr>, right: Vec<AExpr>) -> Option<Unifier> {
     // Zip input vectors into a set of equalities.
     let l = left.into_iter();
     let r = right.into_iter();
-    let set = l.zip(r).collect();
-
+    let set: BTreeSet<(AExpr, AExpr)> = l.zip(r).collect();
 
     // Find the unifier
     MguFinder::new(set)              // Create new MguFinder
         .run()                       // Run the algorithm to find MGU
-        .map(Unifier::try_from)      // If found, convert to `Unifier` object
-        .transpose()                 // Convert `Option<Result<..., ...>>` into `Result<Option<...>, ...>`
-        .unwrap()                    // Panic if there is an error
 }
 

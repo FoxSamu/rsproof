@@ -1,0 +1,6 @@
+all x: P(x),
+all x: some y: (P(x) -> Q(x, y)),
+
+|-
+
+some y: Q(a, y)

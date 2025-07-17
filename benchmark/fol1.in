@@ -1,0 +1,13 @@
+# Every person who owns a cat, loves an animal
+all x: ((Person(x) & OwnsCat(x)) -> some y: (Animal(y) & Loves(x, y))),
+
+# Sophie is a person
+Person(sophie),
+
+# Sophie owns a cat
+OwnsCat(sophie)
+
+|-
+
+# Therefore sophie loves an animal
+some y: (Animal(y) & Loves(sophie, y))

@@ -1,0 +1,10 @@
+all x: (P(x) <- P(a(x))),
+all x: (P(x) <- P(b(x))),
+all x: (P(x) <- P(c(x))),
+all x: (P(x) <- P(d(x))),
+
+P(a(b(a(d(b(a(x)))))))
+
+|-
+
+P(x)

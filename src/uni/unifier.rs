@@ -30,6 +30,18 @@ impl Unifier {
         }
     }
 
+    /// Creates a new unifier with one substitution.
+    pub fn try_singleton(from: Name, to: AExpr) -> Result<Self, &'static str> {
+        let mut new = Self::new();
+        new.try_add(from, to)?;
+        Ok(new)
+    }
+
+    /// Creates a new unifier with one substitution.
+    pub fn singleton(from: Name, to: AExpr) -> Self {
+        Self::try_singleton(from, to).unwrap()
+    }
+
     /// Adds a new substitution `from := to` to the unifier. Panics when:
     /// - There is a substitution `x := a` where `to` is a variable of `a`.
     /// - There is a substitution `from := a` for some expression `a`.
@@ -64,6 +76,22 @@ impl Unifier {
         self.table.insert(from, to);
 
         Ok(())
+    }
+
+    /// Attempts to add a new substitution `from := to` to the unifier. Returns an error when:
+    /// - There is a substitution `x := a` where `to` is a variable of `a`.
+    /// - There is a substitution `from := a` for some expression `a`.
+    /// - `from` is a variable of `to`.
+    /// 
+    /// In other words, it returns an error when the integrity of the unifier would be
+    /// violated.
+    pub fn chain(mut self, mut unifier: Unifier) -> Unifier {
+        // Apply unifier
+        self.table = self.table.into_iter().map(|(name, expr)| (name, expr.unify(&unifier))).collect();
+
+        // Insert unifier
+        self.table.append(&mut unifier.table);
+        self
     }
 
     pub fn remove(&mut self, name: &Name) -> bool {
@@ -117,6 +145,10 @@ impl Unifier {
         let r = right.mgu_arguments()?;
 
         super::mgu::mgu(l, r)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.table.is_empty()
     }
 }
 
@@ -231,6 +263,11 @@ impl DisplayNamed for Unifier {
     }
 }
 
+impl Default for Unifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 
 

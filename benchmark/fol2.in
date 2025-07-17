@@ -1,0 +1,12 @@
+# Equality in pure FOL
+
+all x: Eq(x, x), #idempotence
+all x, y: (Eq(x, y) <-> Eq(y, x)), #reflexivity
+all x, y, z: ((Eq(x, y) & Eq(y, z)) -> Eq(x, z)), #transitivity
+
+Eq(a, b),
+Eq(b, c)
+
+|-
+
+Eq(c, a)
