@@ -1,6 +1,6 @@
 # RSProof
 
-A small theorem prover in Rust, proving lemmas in propositional logic.
+A small theorem prover in Rust, proving lemmas in propositional logic. This project is the result of my Bachelor thesis, which you may read here: https://fse.studenttheses.ub.rug.nl/36372/.
 
 ## Requirements
 
